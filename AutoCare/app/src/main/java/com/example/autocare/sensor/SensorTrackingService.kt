@@ -149,8 +149,9 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
                         val deltaTime = (curr.timestamp - prev.timestamp) / 1000f
                         if (deltaTime > 0) {
                             val acceleration = deltaSpeed / deltaTime
-                            if (acceleration > 2.5f) accelerations++
-                            if (acceleration < -2.5f) brakings++
+                            Log.d("Sesión", "Δv=${deltaSpeed}, Δt=${deltaTime}, a=$acceleration m/s²")
+                            if (acceleration > 1.5f) accelerations++
+                            if (acceleration < -1.5f) brakings++
                         }
                     }
 

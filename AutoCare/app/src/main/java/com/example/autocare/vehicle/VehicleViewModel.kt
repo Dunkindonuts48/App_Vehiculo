@@ -6,6 +6,7 @@ import com.example.autocare.sensor.DrivingSession
 import com.example.autocare.sensor.DrivingSessionDao
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.threeten.bp.LocalDate
 import org.threeten.bp.temporal.ChronoUnit
 import org.threeten.bp.format.DateTimeFormatter
@@ -41,14 +42,32 @@ class VehicleViewModel(
         }
     }
 
-    fun getVehiclesWithUrgentMaintenance(): List<Vehicle> {
+    suspend fun getVehiclesWithUrgentMaintenanceSuspended(): List<Vehicle> {
+        val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+        val today = LocalDate.now()
+
         return vehicles.value.filter { vehicle ->
-            val maintenances = vehicleMaintenances.value[vehicle.id] ?: emptyList()
-            maintenances.any { m ->
+            val maintenances = maintenanceDao.getByVehicle(vehicle.id).first()
+
+            val lastReviewDate = try {
+                LocalDate.parse(vehicle.lastMaintenanceDate, formatter)
+            } catch (e: Exception) {
+                null
+            }
+
+            val monthsPassed = lastReviewDate?.let { ChronoUnit.MONTHS.between(it, today) } ?: 0
+            val isTimeExceeded = vehicle.maintenanceFrequencyMonths > 0 &&
+                    monthsPassed >= vehicle.maintenanceFrequencyMonths
+
+            val predicted = getPredictedMaintenance(vehicle) // ahora es suspend
+
+            val isCriticalMaintenance = maintenances.any { m ->
                 m.type.contains("aceite", ignoreCase = true) ||
                         m.type.contains("frenos", ignoreCase = true) ||
                         m.type.contains("batería", ignoreCase = true)
             }
+
+            (isTimeExceeded && isCriticalMaintenance) || predicted.isNotEmpty()
         }
     }
 
@@ -132,25 +151,44 @@ class VehicleViewModel(
         }
     }
 
-    fun getPredictedMaintenance(vehicle: Vehicle, history: List<Maintenance>): List<String> {
-        val revision = history.filter { it.type.equals("Revisión general", ignoreCase = true) }
+    suspend fun getPredictedMaintenance(vehicle: Vehicle): List<String> {
+        val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+        val today = LocalDate.now()
+        val maintenances = maintenanceDao.getByVehicle(vehicle.id).first()
+
+        val revision = maintenances.filter { it.type.equals("Revisión general", ignoreCase = true) }
             .maxByOrNull { it.date }
 
-        if (revision != null) {
-            // Usar el formato correcto
-            val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
-            val lastDate = LocalDate.parse(revision.date, formatter)
-            val today = LocalDate.now()
-            val monthsPassed = ChronoUnit.MONTHS.between(lastDate, today)
+        val result = mutableListOf<String>()
 
-            if (vehicle.maintenanceFrequencyMonths > 0 && monthsPassed >= vehicle.maintenanceFrequencyMonths) {
-                return listOf("Revisión general")
+        // 🔹 1. Evaluación por tiempo
+        val isTimeExceeded = revision?.let {
+            val lastDate = try {
+                LocalDate.parse(it.date, formatter)
+            } catch (e: Exception) {
+                null
             }
+            val monthsPassed = lastDate?.let { ChronoUnit.MONTHS.between(it, today) } ?: 0
+            monthsPassed >= vehicle.maintenanceFrequencyMonths
+        } ?: false
+
+        if (isTimeExceeded) result += "Revisión general"
+
+        // 🔹 2. Evaluación por conducción
+        val sessions = drivingSessionDao.getSessionsByVehicle(vehicle.id).first()
+        var highAggressiveCount = 0
+        var highSpeedCount = 0
+
+        sessions.forEach { session ->
+            if (session.accelerations >= 5 || session.brakings >= 5) highAggressiveCount++
+            if (session.averageSpeed > 25f) highSpeedCount++
         }
 
-        return emptyList()
-    }
+        val totalSessions = highAggressiveCount + highSpeedCount
+        if (totalSessions >= 3) result += "Revisión anticipada por conducción agresiva"
 
+        return result
+    }
 
     fun deleteDrivingSession(session: DrivingSession) {
         viewModelScope.launch {

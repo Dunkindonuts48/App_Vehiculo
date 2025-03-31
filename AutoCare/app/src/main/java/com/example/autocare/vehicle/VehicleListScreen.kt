@@ -9,17 +9,31 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import kotlinx.coroutines.launch
 
 @Composable
 fun VehicleListScreen(navController: NavHostController, viewModel: VehicleViewModel) {
     val vehicles = viewModel.vehicles.collectAsState()
-    val urgentVehicles = viewModel.getVehiclesWithUrgentMaintenance().map { it.id }.toSet()
+    val urgentVehicles = remember { mutableStateOf<Set<Int>>(emptySet()) }
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        coroutineScope.launch {
+            val urgent = viewModel.getVehiclesWithUrgentMaintenanceSuspended()
+            urgentVehicles.value = urgent.map { it.id }.toSet()
+        }
+    }
+
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -56,7 +70,7 @@ fun VehicleListScreen(navController: NavHostController, viewModel: VehicleViewMo
                                 Text("Kilometraje: ${vehicle.mileage} km")
                             }
 
-                            if (urgentVehicles.contains(vehicle.id)) {
+                            if (urgentVehicles.value.contains(vehicle.id)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Box(
                                         modifier = Modifier

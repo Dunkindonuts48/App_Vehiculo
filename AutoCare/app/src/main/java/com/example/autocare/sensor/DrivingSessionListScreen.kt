@@ -36,8 +36,8 @@ fun DrivingSessionListScreen(vehicleId: Int, viewModel: VehicleViewModel, navCon
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Text("Inicio: ${session.startTime.toReadableTime()}")
                                     Text("Fin: ${session.endTime.toReadableTime()}")
-                                    Text("Velocidad Máxima: ${"%.1f".format(session.maxSpeed)} m/s")
-                                    Text("Velocidad Media: ${"%.1f".format(session.averageSpeed)} m/s")
+                                    Text("Velocidad Máxima: ${"%.1f".format(session.maxSpeed * 3.6)} km/h")
+                                    Text("Velocidad Media: ${"%.1f".format(session.averageSpeed * 3.6)} km/h")
                                     Text("Acelerones: ${session.accelerations}")
                                     Text("Frenazos: ${session.brakings}")
 

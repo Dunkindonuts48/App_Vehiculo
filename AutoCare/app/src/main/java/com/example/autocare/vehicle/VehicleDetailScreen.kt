@@ -30,8 +30,12 @@ fun VehicleDetailScreen(vehicleId: Int, viewModel: VehicleViewModel, navControll
 
     var showForm by remember { mutableStateOf(false) }
 
-    val predicted = remember(vehicle, maintenances.value) {
-        if (vehicle != null) viewModel.getPredictedMaintenance(vehicle, maintenances.value) else emptyList()
+    var predicted by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    LaunchedEffect(vehicle) {
+        if (vehicle != null) {
+            predicted = viewModel.getPredictedMaintenance(vehicle)
+        }
     }
 
     val context = LocalContext.current
