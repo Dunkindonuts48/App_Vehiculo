@@ -1,8 +1,0 @@
-<resources>
-    <string name="app_name">car_App</string>
-    <string name="title_home">Home</string>
-    <string name="title_dashboard">Dashboard</string>
-    <string name="title_notifications">Notifications</string>
-    <string name="btnConnect">btnConnect</string>
-    btnConnect
-</resources>
