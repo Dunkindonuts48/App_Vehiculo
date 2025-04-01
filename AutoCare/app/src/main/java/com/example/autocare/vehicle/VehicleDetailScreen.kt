@@ -58,6 +58,9 @@ fun VehicleDetailScreen(vehicleId: Int, viewModel: VehicleViewModel, navControll
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION
         )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             permissions.add(Manifest.permission.FOREGROUND_SERVICE_LOCATION)
         }
@@ -160,7 +163,21 @@ fun VehicleDetailScreen(vehicleId: Int, viewModel: VehicleViewModel, navControll
 
                 Button(onClick = {
                     if (hasAllPermissions()) {
-                        if (vehicle != null) startTrackingServiceAndNavigate(context, vehicle.id, navController)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                            != PackageManager.PERMISSION_GRANTED
+                        ) {
+                            Toast.makeText(
+                                context,
+                                "Debes permitir notificaciones para iniciar el seguimiento",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            return@Button
+                        }
+
+                        if (vehicle != null) {
+                            startTrackingServiceAndNavigate(context, vehicle.id, navController)
+                        }
                     } else {
                         requestPermissions()
                     }

@@ -26,6 +26,11 @@ import kotlin.math.abs
 
 class SensorTrackingService : Service(), SensorEventListener, LocationListener {
 
+    private val NOTIFICATION_ID = 1
+    private val CHANNEL_ID = "tracking_channel"
+    private lateinit var notificationManager: NotificationManager
+
+
     private lateinit var sensorManager: SensorManager
     private lateinit var locationManager: LocationManager
     private lateinit var sensorDataDao: SensorDataDao
@@ -40,6 +45,7 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
 
     override fun onCreate() {
         super.onCreate()
+        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         val db = VehicleDatabase.getDatabase(applicationContext)
@@ -102,6 +108,7 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
 
     override fun onLocationChanged(location: Location) {
         speed = location.speed
+        updateNotification(speed)
         if (vehicleId != -1) {
             val data = SensorData(
                 vehicleId = vehicleId,
@@ -186,4 +193,18 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
             return normalized.coerceIn(0f, 100f)
         }
     }
+
+    private fun updateNotification(speed: Float) {
+        val speedKmH = (speed * 3.6f).toInt()
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Seguimiento en curso")
+            .setContentText("Velocidad actual: $speedKmH km/h")
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOnlyAlertOnce(true) // evita que vibre o haga sonido cada vez
+            .build()
+
+        notificationManager.notify(NOTIFICATION_ID, notification)
+    }
+
 }
