@@ -59,7 +59,7 @@ class VehicleViewModel(
             val isTimeExceeded = vehicle.maintenanceFrequencyMonths > 0 &&
                     monthsPassed >= vehicle.maintenanceFrequencyMonths
 
-            val predicted = getPredictedMaintenance(vehicle) // ahora es suspend
+            val predicted = getPredictedMaintenance(vehicle)
 
             val isCriticalMaintenance = maintenances.any { m ->
                 m.type.contains("aceite", ignoreCase = true) ||
@@ -161,7 +161,6 @@ class VehicleViewModel(
 
         val result = mutableListOf<String>()
 
-        // 🔹 1. Evaluación por tiempo
         val isTimeExceeded = revision?.let {
             val lastDate = try {
                 LocalDate.parse(it.date, formatter)
@@ -173,15 +172,13 @@ class VehicleViewModel(
         } ?: false
 
         if (isTimeExceeded) result += "Revisión general"
-
-        // 🔹 2. Evaluación por conducción
         val sessions = drivingSessionDao.getSessionsByVehicle(vehicle.id).first()
         var highAggressiveCount = 0
         var highSpeedCount = 0
 
         sessions.forEach { session ->
             if (session.accelerations >= 5 || session.brakings >= 5) highAggressiveCount++
-            if (session.averageSpeed > 25f) highSpeedCount++
+            if (session.averageSpeed > 33f) highSpeedCount++
         }
 
         val totalSessions = highAggressiveCount + highSpeedCount

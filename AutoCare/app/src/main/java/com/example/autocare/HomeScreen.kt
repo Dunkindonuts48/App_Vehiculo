@@ -21,22 +21,27 @@ fun HomeScreen(viewModel: VehicleViewModel) {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("Bienvenido a AutoCare", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(24.dp))
-        if (urgentVehicles.isNotEmpty()) {
-            Text("🚨 Vehículos con mantenimiento urgente:")
-            urgentVehicles.forEach {
-                Text("• ${it.brand} ${it.model} (${it.plateNumber})")
+    Scaffold(
+        topBar = { AppHeader("Inicio") }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Bienvenido a AutoCare", style = MaterialTheme.typography.headlineMedium)
+            Spacer(modifier = Modifier.height(24.dp))
+            if (urgentVehicles.isNotEmpty()) {
+                Text("🚨 Vehículos con mantenimiento urgente:")
+                urgentVehicles.forEach {
+                    Text("• ${it.brand} ${it.model} (${it.plateNumber})")
+                }
+            } else {
+                Text("No hay mantenimientos urgentes.")
             }
-        } else {
-            Text("No hay mantenimientos urgentes.")
         }
     }
 }

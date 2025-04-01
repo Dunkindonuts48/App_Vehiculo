@@ -14,6 +14,7 @@ import com.example.autocare.vehicle.VehicleViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import com.example.autocare.AppHeader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,7 +24,7 @@ fun DrivingSessionListScreen(vehicleId: Int, viewModel: VehicleViewModel, navCon
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Sesiones de Conducción") })
+            AppHeader("Sesiones de Conducción")
         },
         content = { padding ->
             Column(modifier = Modifier.padding(padding).padding(16.dp).fillMaxSize()) {

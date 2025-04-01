@@ -32,12 +32,13 @@ fun VehicleFormScreen(navController: NavHostController, viewModel: VehicleViewMo
     var freqMonths by remember { mutableStateOf((existingVehicle?.maintenanceFrequencyMonths ?: 0).toString()) }
 
     val types = listOf("Gasolina", "Diésel", "Eléctrico", "Híbrido")
-    val brands = listOf("Audi", "BMW", "SEAT", "Volkswagen")
+    val brands = listOf("Audi", "BMW", "SEAT", "Volkswagen", "SMART" )
     val modelsByBrand = mapOf(
         "Audi" to listOf("A1", "A3", "Q2"),
         "BMW" to listOf("Serie 1", "X1"),
         "SEAT" to listOf("Ibiza", "León"),
-        "Volkswagen" to listOf("Golf", "Polo")
+        "Volkswagen" to listOf("Golf", "Polo"),
+        "SMART" to listOf("ForFour", "ForTwo")
     )
 
     val monthsOptions = (0..100).map { it.toString() }

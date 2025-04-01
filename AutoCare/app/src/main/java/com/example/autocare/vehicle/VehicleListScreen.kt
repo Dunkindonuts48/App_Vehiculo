@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import kotlinx.coroutines.launch
+import com.example.autocare.AppHeader
 
 @Composable
 fun VehicleListScreen(navController: NavHostController, viewModel: VehicleViewModel) {
@@ -36,11 +37,12 @@ fun VehicleListScreen(navController: NavHostController, viewModel: VehicleViewMo
 
 
     Scaffold(
+        topBar = {
+            AppHeader("Vehículos Registrados") },
         modifier = Modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets.systemBars
     ) { innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).padding(16.dp)) {
-            Text("Vehículos Registrados", style = MaterialTheme.typography.headlineSmall)
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(onClick = { navController.navigate("form") }) {

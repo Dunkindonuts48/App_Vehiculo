@@ -10,6 +10,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.example.autocare.AppHeader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -18,7 +19,7 @@ fun MaintenanceListScreen(vehicleId: Int, viewModel: VehicleViewModel, navContro
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Historial de Mantenimientos") })
+            AppHeader("Historial de Mantenimientos")
         },
         content = { padding ->
             Column(modifier = Modifier.padding(padding).padding(16.dp)) {

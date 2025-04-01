@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
+import com.example.autocare.AppHeader
 import com.example.autocare.sensor.SensorTrackingService
 
 @Composable
@@ -79,6 +80,9 @@ fun VehicleDetailScreen(vehicleId: Int, viewModel: VehicleViewModel, navControll
     }
 
     Scaffold(
+        topBar = {
+            AppHeader("Vehiculo")
+        },
         modifier = Modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets.systemBars
     ) { innerPadding ->
@@ -86,20 +90,37 @@ fun VehicleDetailScreen(vehicleId: Int, viewModel: VehicleViewModel, navControll
 
             Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                 if (vehicle != null) {
-                    Text("Detalle del Vehículo", style = MaterialTheme.typography.headlineSmall)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Marca: ${vehicle.brand}")
-                    Text("Modelo: ${vehicle.model}")
-                    Text("Tipo: ${vehicle.type}")
-                    Text("Matrícula: ${vehicle.plateNumber}")
-                    Text("Kilometraje: ${vehicle.mileage} km")
-                    Text("Fecha de compra: ${vehicle.purchaseDate}")
-                    Text("Última revisión: ${vehicle.lastMaintenanceDate}")
-                    Text("Frecuencia (km): ${vehicle.maintenanceFrequencyKm}")
-                    Text("Frecuencia (meses): ${vehicle.maintenanceFrequencyMonths}")
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("🧾 Detalles del Vehículo", style = MaterialTheme.typography.titleMedium)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Marca: ${vehicle.brand}")
+                            Text("Modelo: ${vehicle.model}")
+                            Text("Tipo: ${vehicle.type}")
+                            Text("Matrícula: ${vehicle.plateNumber}")
+                            Text("Kilometraje: ${vehicle.mileage} km")
+                            Text("Fecha de compra: ${vehicle.purchaseDate}")
+                            Text("Última revisión: ${vehicle.lastMaintenanceDate}")
+                            Text("Frecuencia (km): ${vehicle.maintenanceFrequencyKm}")
+                            Text("Frecuencia (meses): ${vehicle.maintenanceFrequencyMonths}")
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("💰 Gasto total en mantenimiento: %.2f €".format(totalCost), style = MaterialTheme.typography.titleMedium)
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("💰 Coste acumulado", style = MaterialTheme.typography.titleMedium)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Total: %.2f €".format(totalCost))
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(24.dp))
 

@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.example.autocare.AppHeader
 import com.example.autocare.vehicle.VehicleDatabase
 import kotlinx.coroutines.launch
 
@@ -17,8 +18,6 @@ import kotlinx.coroutines.launch
 fun TrackingScreen(vehicleId: Int, navController: NavHostController) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-
-    // Escuchar cambios en SensorData en tiempo real
     val sensorDataList = VehicleDatabase.getDatabase(context)
         .sensorDataDao()
         .getByVehicle(vehicleId)
@@ -29,7 +28,6 @@ fun TrackingScreen(vehicleId: Int, navController: NavHostController) {
 
     var aggressiveness by remember { mutableStateOf(0f) }
 
-    // Recalcular agresividad cuando los datos cambien
     LaunchedEffect(sensorDataList.value) {
         coroutineScope.launch {
             aggressiveness = SensorTrackingService.calculateAggressiveness(context, vehicleId)
@@ -38,7 +36,7 @@ fun TrackingScreen(vehicleId: Int, navController: NavHostController) {
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Seguimiento Predictivo") })
+            AppHeader("Seguimiento Predictivo")
         },
         content = { padding ->
             Column(
