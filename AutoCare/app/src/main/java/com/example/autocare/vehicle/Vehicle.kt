@@ -14,5 +14,6 @@ data class Vehicle(
     val purchaseDate: String,
     val lastMaintenanceDate: String,
     val maintenanceFrequencyKm: Int,
-    val maintenanceFrequencyMonths: Int
+    val maintenanceFrequencyMonths: Int,
+    val alias: String? = null
 )

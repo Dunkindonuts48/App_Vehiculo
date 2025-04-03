@@ -157,8 +157,8 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
                         if (deltaTime > 0) {
                             val acceleration = deltaSpeed / deltaTime
                             Log.d("Sesión", "Δv=${deltaSpeed}, Δt=${deltaTime}, a=$acceleration m/s²")
-                            if (acceleration > 1.5f) accelerations++
-                            if (acceleration < -1.5f) brakings++
+                            if (acceleration > 0.5f) accelerations++
+                            if (acceleration < -0.5f) brakings++
                         }
                     }
 
@@ -201,7 +201,7 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
             .setContentText("Velocidad actual: $speedKmH km/h")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOnlyAlertOnce(true) // evita que vibre o haga sonido cada vez
+            .setOnlyAlertOnce(true)
             .build()
 
         notificationManager.notify(NOTIFICATION_ID, notification)

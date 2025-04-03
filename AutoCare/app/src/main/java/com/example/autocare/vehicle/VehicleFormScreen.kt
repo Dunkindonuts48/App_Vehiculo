@@ -30,6 +30,7 @@ fun VehicleFormScreen(navController: NavHostController, viewModel: VehicleViewMo
     var lastReviewDate by remember { mutableStateOf(existingVehicle?.lastMaintenanceDate ?: "") }
     var freqKm by remember { mutableStateOf((existingVehicle?.maintenanceFrequencyKm ?: 0).toString()) }
     var freqMonths by remember { mutableStateOf((existingVehicle?.maintenanceFrequencyMonths ?: 0).toString()) }
+    var alias by remember { mutableStateOf(existingVehicle?.alias ?: "") }
 
     val types = listOf("Gasolina", "Diésel", "Eléctrico", "Híbrido")
     val brands = listOf("Audi", "BMW", "SEAT", "Volkswagen", "SMART" )
@@ -130,6 +131,13 @@ fun VehicleFormScreen(navController: NavHostController, viewModel: VehicleViewMo
 
             DropdownField("Frecuencia (meses)", freqMonths, monthsOptions) { freqMonths = it }
 
+            OutlinedTextField(
+                value = alias,
+                onValueChange = { alias = it },
+                label = { Text("Alias (opcional)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
             Spacer(modifier = Modifier.height(16.dp))
             Button(onClick = {
                 val data = Vehicle(
@@ -142,7 +150,8 @@ fun VehicleFormScreen(navController: NavHostController, viewModel: VehicleViewMo
                     purchaseDate = purchaseDate,
                     lastMaintenanceDate = lastReviewDate,
                     maintenanceFrequencyKm = freqKm.toIntOrNull() ?: 0,
-                    maintenanceFrequencyMonths = freqMonths.toIntOrNull() ?: 0
+                    maintenanceFrequencyMonths = freqMonths.toIntOrNull() ?: 0,
+                    alias = alias.ifBlank { null }
                 )
                 if (vehicleId == null) viewModel.registerVehicle(data)
                 else viewModel.updateVehicle(data)

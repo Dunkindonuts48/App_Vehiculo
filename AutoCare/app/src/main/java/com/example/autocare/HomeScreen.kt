@@ -37,7 +37,7 @@ fun HomeScreen(viewModel: VehicleViewModel) {
             if (urgentVehicles.isNotEmpty()) {
                 Text("🚨 Vehículos con mantenimiento urgente:")
                 urgentVehicles.forEach {
-                    Text("• ${it.brand} ${it.model} (${it.plateNumber})")
+                    Text("• ${it.alias ?: "${it.brand} ${it.model} (${it.plateNumber})"}")
                 }
             } else {
                 Text("No hay mantenimientos urgentes.")

@@ -9,7 +9,7 @@ import com.example.autocare.sensor.DrivingSessionDao
 import com.example.autocare.sensor.SensorData
 import com.example.autocare.sensor.SensorDataDao
 
-@Database(entities = [Vehicle::class, Maintenance::class, SensorData::class, DrivingSession::class], version = 4)
+@Database(entities = [Vehicle::class, Maintenance::class, SensorData::class, DrivingSession::class], version = 1)
 abstract class VehicleDatabase : RoomDatabase() {
     abstract fun vehicleDao(): VehicleDao
     abstract fun maintenanceDao(): MaintenanceDao
