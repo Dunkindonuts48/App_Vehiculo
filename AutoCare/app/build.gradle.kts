@@ -51,11 +51,11 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.1")
-    implementation("androidx.compose.ui:ui:1.5.0")
-    implementation("androidx.compose.material3:material3:1.1.0")
-    implementation("androidx.navigation:navigation-compose:2.7.7")
-    implementation("com.jakewharton.threetenabp:threetenabp:1.4.5")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.1")
+    implementation("androidx.compose.ui:ui:1.8.3")
+    implementation("androidx.compose.material3:material3:1.3.2")
+    implementation("androidx.navigation:navigation-compose:2.9.0")
+    implementation("com.jakewharton.threetenabp:threetenabp:1.4.9")
 
     // Room
     implementation(libs.room.runtime)

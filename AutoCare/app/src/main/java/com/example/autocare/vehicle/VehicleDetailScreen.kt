@@ -1,10 +1,8 @@
 package com.example.autocare.vehicle
-
 import android.Manifest
-import android.app.Activity
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -12,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
@@ -20,236 +19,198 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import com.example.autocare.AppHeader
 import com.example.autocare.sensor.SensorTrackingService
+import com.example.autocare.util.getVehicleDisplayName
 import kotlinx.coroutines.launch
 
+@SuppressLint("InlinedApi")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VehicleDetailScreen(vehicleId: Int, viewModel: VehicleViewModel, navController: NavHostController) {
-    val vehicle = viewModel.vehicles.collectAsState().value.find { it.id == vehicleId }
-    val maintenances = viewModel.getMaintenancesForVehicle(vehicleId).collectAsState(initial = emptyList())
-    val totalCost = remember(maintenances.value) { maintenances.value.sumOf { it.cost } }
+fun VehicleDetailScreen(
+    vehicleId: Int,
+    viewModel: VehicleViewModel,
+    navController: NavHostController
+) {
+    val vehicles by viewModel.vehicles.collectAsState(initial = emptyList())
+    val vehicle = vehicles.firstOrNull { it.id == vehicleId }
+
+    val maintenances by viewModel.getMaintenancesForVehicle(vehicleId)
+        .collectAsState(initial = emptyList())
+    val totalCost by remember(maintenances) {
+        derivedStateOf { maintenances.sumOf { it.cost } }
+    }
+
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var showForm by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
     var showSheet by remember { mutableStateOf(false) }
+    var showForm by remember { mutableStateOf(false) }
     var predicted by remember { mutableStateOf<List<String>>(emptyList()) }
 
     LaunchedEffect(vehicle) {
-        if (vehicle != null) {
-            predicted = viewModel.getPredictedMaintenance(vehicle)
-        }
+        vehicle?.let { predicted = viewModel.getPredictedMaintenance(it) }
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions(),
-        onResult = { permissions ->
-            val granted = permissions.values.all { it }
-            if (granted && vehicle != null) {
-                startTrackingServiceAndNavigate(context, vehicle.id, navController)
-            } else {
-                Toast.makeText(context, "Permisos denegados", Toast.LENGTH_SHORT).show()
-            }
+    val permLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { perms ->
+        if (perms.values.all { it } && vehicle != null) {
+            startTrackingServiceAndNavigate(context, vehicle.id, navController)
+        } else {
+            Toast.makeText(context, "Permisos denegados", Toast.LENGTH_SHORT).show()
         }
-    )
-
-    fun requestPermissions() {
-        val permissions = mutableListOf(
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            permissions.add(Manifest.permission.FOREGROUND_SERVICE_LOCATION)
-        }
-        permissionLauncher.launch(permissions.toTypedArray())
+    }
+    val requestTrackingPermissions = {
+        permLauncher.launch(getTrackingPermissions())
     }
 
-    if (showSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showSheet = false },
-            sheetState = bottomSheetState
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Button(onClick = {
-                    coroutineScope.launch {
-                        bottomSheetState.hide()
-                        showSheet = false
-                        navController.navigate("form/${vehicle?.id}")
-                    }
-                }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Editar Vehículo")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(onClick = {
-                    coroutineScope.launch {
-                        bottomSheetState.hide()
-                        showSheet = false
-                        showForm = !showForm
-                    }
-                }, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (showForm) "Cancelar" else "Añadir mantenimiento")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(onClick = {
-                    coroutineScope.launch {
-                        bottomSheetState.hide()
-                        showSheet = false
-                        vehicle?.let { navController.navigate("maintenance/${it.id}") }
-                    }
-                }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Ver mantenimientos")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(onClick = {
-                    coroutineScope.launch {
-                        bottomSheetState.hide()
-                        showSheet = false
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-                        ) {
-                            Toast.makeText(context, "Activa las notificaciones para el seguimiento", Toast.LENGTH_LONG).show()
-                            return@launch
-                        }
-                        if (vehicle != null) startTrackingServiceAndNavigate(context, vehicle.id, navController)
-                    }
-                }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Iniciar seguimiento")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(onClick = {
-                    coroutineScope.launch {
-                        bottomSheetState.hide()
-                        showSheet = false
-                        vehicle?.let { navController.navigate("sessions/${it.id}") }
-                    }
-                }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Historial de sesiones")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(onClick = {
-                    coroutineScope.launch {
-                        bottomSheetState.hide()
-                        showSheet = false
-                        vehicle?.let {
-                            viewModel.deleteVehicle(it)
-                            navController.popBackStack("list", inclusive = false)
-                        }
-                    }
-                }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), modifier = Modifier.fillMaxWidth()) {
-                    Text("Eliminar Vehículo")
-                }
-            }
+    val actions = buildList<Pair<String, () -> Unit>> {
+        vehicle?.let {
+            add("Editar Vehículo" to { navController.navigate("form/${it.id}") })
+            add((if (showForm) "Cancelar" else "Añadir mantenimiento") to { showForm = !showForm })
+            add("Ver mantenimientos" to { navController.navigate("maintenance/${it.id}") })
+            add("Iniciar seguimiento" to { requestTrackingPermissions() })
+            add("Historial de sesiones" to { navController.navigate("sessions/${it.id}") })
+            add("Eliminar Vehículo" to {
+                viewModel.deleteVehicle(it)
+                navController.popBackStack("list", false)
+            })
         }
     }
 
     Scaffold(
-        topBar = { AppHeader("Vehículo") },
+        topBar = {
+            AppHeader(
+                title = "Vehículo",
+                onBack = { navController.popBackStack() }
+            )
+        },
         floatingActionButton = {
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.BottomCenter
-            ) {
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
                 FloatingActionButton(onClick = { showSheet = true }) {
-                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Mostrar opciones")
+                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Opciones")
                 }
             }
         }
     ) { padding ->
+        if (showSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showSheet = false },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = spacedBy(8.dp)
+                ) {
+                    actions.forEach { (label, action) ->
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    showSheet = false
+                                    action()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = if (label == "Eliminar Vehículo")
+                                ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            else ButtonDefaults.buttonColors()
+                        ) {
+                            Text(label)
+                        }
+                    }
+                }
+            }
+        }
+
         Column(
-            modifier = Modifier
+            Modifier
                 .padding(padding)
                 .padding(16.dp)
-                .verticalScroll(rememberScrollState())
-                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = spacedBy(16.dp)
         ) {
-            if (vehicle != null) {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        if (vehicle.alias != null)
-                        {
-                            Text("${vehicle.alias}", style = MaterialTheme.typography.titleLarge.copy(textDecoration = TextDecoration.Underline))
-                        }
-                        else
-                        {
-                            Text("Vehicle Nº${vehicle.id}", style = MaterialTheme.typography.titleLarge.copy(textDecoration = TextDecoration.Underline))
-                        }
-                        Text("Marca: ${vehicle.brand}")
-                        Text("Modelo: ${vehicle.model}")
-                        Text("Tipo: ${vehicle.type}")
-                        Text("Matrícula: ${vehicle.plateNumber}")
-                        Text("Kilometraje: ${vehicle.mileage} km")
-                        Text("Fecha de compra: ${vehicle.purchaseDate}")
-                        Text("Última revisión: ${vehicle.lastMaintenanceDate}")
-                        Text("Frecuencia (km): ${vehicle.maintenanceFrequencyKm}")
-                        Text("Frecuencia (meses): ${vehicle.maintenanceFrequencyMonths}")
+            vehicle?.let { v ->
+                Text(
+                    getVehicleDisplayName(v),
+                    style = MaterialTheme.typography.titleLarge
+                        .copy(textDecoration = TextDecoration.Underline),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
 
+                Card(Modifier.fillMaxWidth()) {
+                    Column(
+                        Modifier.padding(16.dp),
+                        verticalArrangement = spacedBy(8.dp)
+                    ) {
+                        Text("Marca: ${v.brand}", style = MaterialTheme.typography.bodyLarge)
+                        Text("Modelo: ${v.model}", style = MaterialTheme.typography.bodyMedium)
+                        Text("Tipo: ${v.type}", style = MaterialTheme.typography.bodyMedium)
+                        Text("Matrícula: ${v.plateNumber}", style = MaterialTheme.typography.bodyMedium)
+                        Text("Kilometraje: ${v.mileage} km", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("💰 Gasto total en mantenimiento: %.2f €".format(totalCost))
+
+                Card(Modifier.fillMaxWidth()) {
+                    Column(
+                        Modifier.padding(16.dp),
+                        verticalArrangement = spacedBy(4.dp)
+                    ) {
+                        Text("Gasto total", style = MaterialTheme.typography.titleMedium)
+                        Text("%.2f €".format(totalCost), style = MaterialTheme.typography.titleLarge)
                     }
                 }
-                Spacer(modifier = Modifier.height(24.dp))
+
                 if (predicted.isNotEmpty()) {
-                    Text("🔔 Mantenimientos Recomendados", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    predicted.forEach { type ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-                        ) {
-                            Text(type, modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodyLarge)
+                    Text("Predicciones:", style = MaterialTheme.typography.titleMedium)
+                    Column(verticalArrangement = spacedBy(4.dp)) {
+                        predicted.forEach { type ->
+                            Card(Modifier.fillMaxWidth()) {
+                                Text(type, Modifier.padding(12.dp), style = MaterialTheme.typography.bodyLarge)
+                            }
                         }
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
                 }
-                if (showForm && vehicle != null) {
+
+                if (showForm) {
                     MaintenanceItemView(
-                        vehicleId = vehicle.id,
-                        onSave = { maintenance ->
-                            viewModel.registerMaintenance(maintenance)
+                        vehicleId = v.id,
+                        onSave = {
+                            viewModel.registerMaintenance(it)
                             showForm = false
                         },
-                        onCancel = {
-                            showForm = false
-                        }
+                        onCancel = { showForm = false }
                     )
                 }
-            } else {
-                Text("Vehículo no encontrado", color = MaterialTheme.colorScheme.error)
-            }
+            } ?: Text("Vehículo no encontrado", color = MaterialTheme.colorScheme.error)
         }
     }
 }
 
-fun startTrackingServiceAndNavigate(context: Context, vehicleId: Int, navController: NavHostController) {
-    val hasFine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-    val hasCoarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-    val hasForegroundService = ContextCompat.checkSelfPermission(context, Manifest.permission.FOREGROUND_SERVICE_LOCATION) == PackageManager.PERMISSION_GRANTED
+private fun getTrackingPermissions(): Array<String> = mutableListOf<String>().apply {
+    add(Manifest.permission.ACCESS_FINE_LOCATION)
+    add(Manifest.permission.ACCESS_COARSE_LOCATION)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+        add(Manifest.permission.FOREGROUND_SERVICE_LOCATION)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+        add(Manifest.permission.POST_NOTIFICATIONS)
+}.toTypedArray()
 
-    if (hasForegroundService && (hasFine || hasCoarse)) {
-        val intent = Intent(context, SensorTrackingService::class.java).apply {
-            putExtra("vehicleId", vehicleId)
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent)
-        } else {
-            context.startService(intent)
-        }
-        navController.navigate("tracking/$vehicleId")
-    } else {
-        Toast.makeText(context, "Permisos de ubicación requeridos para iniciar el seguimiento", Toast.LENGTH_LONG).show()
+private fun startTrackingServiceAndNavigate(
+    context: Context,
+    vehicleId: Int,
+    navController: NavHostController
+) {
+    Intent(context, SensorTrackingService::class.java).apply {
+        putExtra("vehicleId", vehicleId)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            context.startForegroundService(this)
+        else
+            context.startService(this)
     }
+    navController.navigate("tracking/$vehicleId")
 }

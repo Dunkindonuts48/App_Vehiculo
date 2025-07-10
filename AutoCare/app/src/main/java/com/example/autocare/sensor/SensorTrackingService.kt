@@ -20,6 +20,7 @@ import com.example.autocare.R
 import com.example.autocare.vehicle.VehicleDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -29,7 +30,6 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
     private val NOTIFICATION_ID = 1
     private val CHANNEL_ID = "tracking_channel"
     private lateinit var notificationManager: NotificationManager
-
 
     private lateinit var sensorManager: SensorManager
     private lateinit var locationManager: LocationManager
@@ -45,16 +45,18 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
 
     override fun onCreate() {
         super.onCreate()
+
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+
         val db = VehicleDatabase.getDatabase(applicationContext)
         sensorDataDao = db.sensorDataDao()
         drivingSessionDao = db.drivingSessionDao()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                "tracking_channel",
+                CHANNEL_ID,
                 "Seguimiento Predictivo",
                 NotificationManager.IMPORTANCE_LOW
             )
@@ -85,14 +87,14 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
         vehicleId = intent?.getIntExtra("vehicleId", -1) ?: -1
         sessionStartTime = System.currentTimeMillis()
 
-        val notification = NotificationCompat.Builder(this, "tracking_channel")
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Seguimiento activo")
             .setContentText("Recopilando datos de conducción...")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
-        startForeground(1, notification)
+        startForeground(NOTIFICATION_ID, notification)
 
         return START_STICKY
     }
@@ -109,6 +111,7 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
     override fun onLocationChanged(location: Location) {
         speed = location.speed
         updateNotification(speed)
+
         if (vehicleId != -1) {
             val data = SensorData(
                 vehicleId = vehicleId,
@@ -133,6 +136,7 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
 
     override fun onDestroy() {
         super.onDestroy()
+
         sensorManager.unregisterListener(this)
         locationManager.removeUpdates(this)
 
@@ -148,17 +152,24 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
 
                     var accelerations = 0
                     var brakings = 0
-
                     for (i in 1 until allData.size) {
                         val prev = allData[i - 1]
                         val curr = allData[i]
                         val deltaSpeed = curr.speed - prev.speed
                         val deltaTime = (curr.timestamp - prev.timestamp) / 1000f
-                        if (deltaTime > 0) {
+                        Log.i("DeltaTime: ", "${ deltaTime }")
+                        if (deltaTime in 0.2..5.0) {
                             val acceleration = deltaSpeed / deltaTime
-                            Log.d("Sesión", "Δv=${deltaSpeed}, Δt=${deltaTime}, a=$acceleration m/s²")
-                            if (acceleration > 0.5f) accelerations++
-                            if (acceleration < -0.5f) brakings++
+                            Log.d("Sesión", "Δv=$deltaSpeed, Δt=$deltaTime, a=$acceleration m/s²")
+
+                            if (acceleration > 0.5f) {
+                                accelerations++
+                                Log.i("Sesión", "🚀 Acelerón detectado ($acceleration m/s²)")
+                            }
+                            if (acceleration < -0.5f) {
+                                brakings++
+                                Log.i("Sesión", "🛑 Frenazo detectado ($acceleration m/s²)")
+                            }
                         }
                     }
 
@@ -206,5 +217,4 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
 
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
-
 }

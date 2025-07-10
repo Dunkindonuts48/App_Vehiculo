@@ -1,6 +1,4 @@
-// VehicleListScreen.kt (reemplazo de TooltipBox por texto visible para mantenimiento urgente)
 package com.example.autocare.vehicle
-
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -19,74 +17,66 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import kotlinx.coroutines.launch
 import com.example.autocare.AppHeader
+import com.example.autocare.util.getVehicleDisplayName
 
 @Composable
 fun VehicleListScreen(navController: NavHostController, viewModel: VehicleViewModel) {
-    val vehicles = viewModel.vehicles.collectAsState()
+    val vehicles by viewModel.vehicles.collectAsState()
     val urgentVehicles = remember { mutableStateOf<Set<Int>>(emptySet()) }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
-        onResult = { permissions ->
-            val granted = permissions.values.all { it }
-            if (!granted) {
-                Toast.makeText(context, "Permisos requeridos no concedidos", Toast.LENGTH_SHORT).show()
+        onResult = { perms ->
+            if (!perms.values.all { it }) {
+                Toast.makeText(context, "Permisos de ubicación no concedidos", Toast.LENGTH_SHORT).show()
             }
         }
     )
-
-    fun requestPermissionsIfNeeded() {
-        val permissions = mutableListOf(
+    LaunchedEffect(Unit) {
+        val perms = mutableListOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION
-        )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            permissions.add(Manifest.permission.FOREGROUND_SERVICE_LOCATION)
+        ).apply {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) add(Manifest.permission.FOREGROUND_SERVICE_LOCATION)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        val notGranted = permissions.any {
-            ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
-        }
-        if (notGranted) {
-            permissionLauncher.launch(permissions.toTypedArray())
-        }
-    }
+        val needed = perms.filter { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }
+        if (needed.isNotEmpty()) permissionLauncher.launch(needed.toTypedArray())
 
-    LaunchedEffect(Unit) {
         coroutineScope.launch {
             val urgent = viewModel.getVehiclesWithUrgentMaintenanceSuspended()
             urgentVehicles.value = urgent.map { it.id }.toSet()
         }
-        requestPermissionsIfNeeded()
     }
 
     Scaffold(
-        topBar = {
-            AppHeader("Vehículos Registrados") },
+        topBar = { AppHeader("Vehículos Registrados") },
         modifier = Modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets.systemBars
-    ) { innerPadding ->
-        Column(modifier = Modifier.padding(innerPadding).padding(16.dp)) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(onClick = { navController.navigate("form") }) {
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .padding(16.dp)
+        ) {
+            Button(
+                onClick = { navController.navigate("form") },
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text("Añadir Vehículo")
             }
-
             Spacer(modifier = Modifier.height(16.dp))
 
             LazyColumn {
-                items(vehicles.value) { vehicle ->
+                items(vehicles) { vehicle ->
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -94,37 +84,28 @@ fun VehicleListScreen(navController: NavHostController, viewModel: VehicleViewMo
                             .clickable { navController.navigate("detail/${vehicle.id}") }
                     ) {
                         Row(
-                            modifier = Modifier
+                            Modifier
                                 .fillMaxWidth()
                                 .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                if (vehicle.alias != null) {
-                                    Text(vehicle.alias, style = MaterialTheme.typography.titleLarge.copy(textDecoration = TextDecoration.Underline))
-                                    Text("Marca: ${vehicle.brand}", style = MaterialTheme.typography.bodyLarge)
-                                    Text("Modelo: ${vehicle.model}")
-                                    Text("Matricula: ${vehicle.plateNumber}")
-                                    Text("Matricula: ${vehicle.mileage} km")
-                                } else {
-                                    Text("Vehicle Nº${vehicle.id}", style = MaterialTheme.typography.titleLarge.copy(textDecoration = TextDecoration.Underline))
-                                    Text("Marca: ${vehicle.brand}", style = MaterialTheme.typography.bodyLarge)
-                                    Text("Modelo: ${vehicle.model}")
-                                    Text("Matrícula: ${vehicle.plateNumber}")
-                                    Text("Kilometraje: ${vehicle.mileage} km")
-                                }
-                            }
-
+                            Text(
+                                text = getVehicleDisplayName(vehicle),
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
                             if (urgentVehicles.value.contains(vehicle.id)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Box(
-                                        modifier = Modifier
+                                        Modifier
                                             .size(12.dp)
                                             .background(Color.Red, CircleShape)
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Spacer(Modifier.width(6.dp))
                                     Text(
-                                        text = "¡Mantenimiento urgente!",
+                                        "¡Mantenimiento urgente!",
                                         color = Color.Red,
                                         style = MaterialTheme.typography.bodySmall
                                     )
