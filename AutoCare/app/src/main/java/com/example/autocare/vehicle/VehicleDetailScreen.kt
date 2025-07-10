@@ -73,7 +73,15 @@ fun VehicleDetailScreen(
             add("Editar Vehículo" to { navController.navigate("form/${it.id}") })
             add((if (showForm) "Cancelar" else "Añadir mantenimiento") to { showForm = !showForm })
             add("Ver mantenimientos" to { navController.navigate("maintenance/${it.id}") })
-            add("Iniciar seguimiento" to { requestTrackingPermissions() })
+            //add("Iniciar seguimiento" to { requestTrackingPermissions() })
+
+            add("Iniciar seguimiento (GPS+Sensores)" to { requestTrackingPermissions() })
+            // Seguimiento sólo Hz (servicio TestHz)
+            add("Iniciar seguimiento (solo Hz)" to {
+            // directamente navega a tu nueva pantalla
+            navController.navigate("trackingHz/${it.id}")
+            })
+
             add("Historial de sesiones" to { navController.navigate("sessions/${it.id}") })
             add("Eliminar Vehículo" to {
                 viewModel.deleteVehicle(it)

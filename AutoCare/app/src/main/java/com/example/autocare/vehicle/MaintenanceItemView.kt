@@ -29,7 +29,6 @@ fun MaintenanceItemView(
     val context = LocalContext.current
     val calendar = remember { Calendar.getInstance() }
 
-    // Opciones por defecto (pueden ser filtradas según el tipo del vehículo si se pasa como parámetro)
     val typeOptions = listOf(
         "Cambio de aceite",
         "Revisión de frenos",

@@ -1,4 +1,3 @@
-// AppNavigation.kt (actualizado para incluir DrivingSessionListScreen)
 package com.example.autocare.navigation
 
 import android.content.Intent
@@ -9,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.autocare.HomeScreen
 import com.example.autocare.sensor.TrackingScreen
+import com.example.autocare.sensor.TrackingScreenTest2
 import com.example.autocare.sensor.DrivingSessionListScreen
 import com.example.autocare.vehicle.*
 
@@ -44,6 +44,14 @@ fun AppNavigation(viewModel: VehicleViewModel) {
                 TrackingScreen(vehicleId, navController)
             }
         }
+
+        composable("trackingHz/{vehicleId}") { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getString("vehicleId")?.toIntOrNull()
+            if (vehicleId != null) {
+                TrackingScreenTest2(vehicleId, navController)
+            }
+        }
+
         composable("sessions/{vehicleId}") { backStackEntry ->
             val vehicleId = backStackEntry.arguments?.getString("vehicleId")?.toIntOrNull()
             if (vehicleId != null) {

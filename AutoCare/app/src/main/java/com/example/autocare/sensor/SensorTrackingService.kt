@@ -75,7 +75,7 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
             locationManager.requestLocationUpdates(
                 LocationManager.GPS_PROVIDER,
                 2000L,
-                1f,
+                10f,
                 this
             )
         } catch (e: SecurityException) {
@@ -160,13 +160,13 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
                         Log.i("DeltaTime: ", "${ deltaTime }")
                         if (deltaTime in 0.2..5.0) {
                             val acceleration = deltaSpeed / deltaTime
-                            Log.d("Sesión", "Δv=$deltaSpeed, Δt=$deltaTime, a=$acceleration m/s²")
+                            //Log.d("Sesión", "Δv=$deltaSpeed, Δt=$deltaTime, a=$acceleration m/s²")
 
-                            if (acceleration > 0.5f) {
+                            if (acceleration > 0.2f) {
                                 accelerations++
                                 Log.i("Sesión", "🚀 Acelerón detectado ($acceleration m/s²)")
                             }
-                            if (acceleration < -0.5f) {
+                            if (acceleration < -0.2f) {
                                 brakings++
                                 Log.i("Sesión", "🛑 Frenazo detectado ($acceleration m/s²)")
                             }
