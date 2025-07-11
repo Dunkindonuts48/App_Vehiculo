@@ -45,7 +45,6 @@ class SensorTrackingServiceTestHz : Service(), SensorEventListener {
                 CHANNEL_ID, "Seguimiento Hz", NotificationManager.IMPORTANCE_LOW
             ).also { notificationManager.createNotificationChannel(it) }
         }
-
         sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.also {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
         }
@@ -70,10 +69,8 @@ class SensorTrackingServiceTestHz : Service(), SensorEventListener {
     override fun onSensorChanged(evt: SensorEvent) {
         when(evt.sensor.type) {
             Sensor.TYPE_ACCELEROMETER -> lastAccel = evt.values.copyOf()
-            Sensor.TYPE_GYROSCOPE     -> {}  // drop or record if you like
+            Sensor.TYPE_GYROSCOPE     -> {}
         }
-
-        // insert one record per event
         val data = SensorData(
             vehicleId = vehicleId,
             timestamp = System.currentTimeMillis(),
@@ -101,19 +98,14 @@ class SensorTrackingServiceTestHz : Service(), SensorEventListener {
                 val all = dao.getByVehicle(vehicleId).first()
                     .filter { it.timestamp >= sessionStart }
                 if (all.isEmpty()) return@launch
-
-                // count “events” above threshold
                 var accelCount = 0
                 all.forEach { d ->
                     val mag = sqrt(d.accelX*d.accelX + d.accelY*d.accelY + d.accelZ*d.accelZ)
                     if (mag > 2f) accelCount++
                 }
 
-                // normalized score
                 val score = (accelCount.toFloat()/all.size)*100f
                 Log.i("HzService", "Aggressiveness Hz = $score")
-
-                // (optionally) store a DrivingSession record here
             }
         }
     }
