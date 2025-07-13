@@ -21,7 +21,6 @@ import com.example.autocare.AppHeader
 fun DrivingSessionListScreen(vehicleId: Int, viewModel: VehicleViewModel, navController: NavHostController) {
     val sessions = viewModel.getDrivingSessionsForVehicle(vehicleId).collectAsState(initial = emptyList())
     val coroutineScope = rememberCoroutineScope()
-
     Scaffold(
         topBar = {
             AppHeader("Sesiones de Conducción")
@@ -41,9 +40,7 @@ fun DrivingSessionListScreen(vehicleId: Int, viewModel: VehicleViewModel, navCon
                                     Text("Velocidad Media: ${"%.1f".format(session.averageSpeed * 3.6)} km/h")
                                     Text("Acelerones: ${session.accelerations}")
                                     Text("Frenazos: ${session.brakings}")
-
                                     Spacer(modifier = Modifier.height(8.dp))
-
                                     Button(onClick = {
                                         coroutineScope.launch {
                                             viewModel.deleteDrivingSession(session)

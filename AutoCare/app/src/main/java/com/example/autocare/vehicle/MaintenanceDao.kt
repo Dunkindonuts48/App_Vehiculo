@@ -7,10 +7,8 @@ import kotlinx.coroutines.flow.Flow
 interface MaintenanceDao {
     @Insert
     suspend fun insert(maintenance: Maintenance)
-
     @Query("SELECT * FROM maintenances WHERE vehicleId = :vehicleId ORDER BY date DESC")
     fun getByVehicle(vehicleId: Int): Flow<List<Maintenance>>
-
     @Delete
     suspend fun delete(maintenance: Maintenance)
 }

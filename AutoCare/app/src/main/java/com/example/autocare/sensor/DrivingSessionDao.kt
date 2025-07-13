@@ -10,13 +10,10 @@ import kotlinx.coroutines.flow.Flow
 interface DrivingSessionDao {
     @Insert
     suspend fun insert(session: DrivingSession)
-
     @Query("SELECT * FROM driving_sessions WHERE vehicleId = :vehicleId ORDER BY endTime DESC")
     fun getSessionsByVehicle(vehicleId: Int): Flow<List<DrivingSession>>
-
     @Query("DELETE FROM driving_sessions")
     suspend fun clearAll()
-
     @Delete
     suspend fun delete(session: DrivingSession)
 

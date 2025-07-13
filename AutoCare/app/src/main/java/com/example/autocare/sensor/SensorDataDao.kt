@@ -9,10 +9,8 @@ import kotlinx.coroutines.flow.Flow
 interface SensorDataDao {
     @Insert
     suspend fun insert(data: SensorData)
-
     @Query("SELECT * FROM sensor_data WHERE vehicleId = :vehicleId ORDER BY timestamp DESC")
     fun getByVehicle(vehicleId: Int): Flow<List<SensorData>>
-
     @Query("DELETE FROM sensor_data")
     suspend fun clearAll()
 }

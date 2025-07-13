@@ -37,7 +37,6 @@ fun VehicleDetailScreen(
 ) {
     val vehicles by viewModel.vehicles.collectAsState(initial = emptyList())
     val vehicle = vehicles.firstOrNull { it.id == vehicleId }
-
     val maintenances by viewModel.getMaintenancesForVehicle(vehicleId)
         .collectAsState(initial = emptyList())
     val totalCost by remember(maintenances) {
@@ -46,7 +45,6 @@ fun VehicleDetailScreen(
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-
     var showSheet by remember { mutableStateOf(false) }
     var showForm by remember { mutableStateOf(false) }
     var predicted by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -73,15 +71,7 @@ fun VehicleDetailScreen(
             add("Editar Vehículo" to { navController.navigate("form/${it.id}") })
             add((if (showForm) "Cancelar" else "Añadir mantenimiento") to { showForm = !showForm })
             add("Ver mantenimientos" to { navController.navigate("maintenance/${it.id}") })
-            //add("Iniciar seguimiento" to { requestTrackingPermissions() })
-
-            add("Iniciar seguimiento (GPS+Sensores)" to { requestTrackingPermissions() })
-            // Seguimiento sólo Hz (servicio TestHz)
-            add("Iniciar seguimiento (solo Hz)" to {
-            // directamente navega a tu nueva pantalla
-            navController.navigate("trackingHz/${it.id}")
-            })
-
+            add("Iniciar seguimiento" to { requestTrackingPermissions() })
             add("Historial de sesiones" to { navController.navigate("sessions/${it.id}") })
             add("Eliminar Vehículo" to {
                 viewModel.deleteVehicle(it)
