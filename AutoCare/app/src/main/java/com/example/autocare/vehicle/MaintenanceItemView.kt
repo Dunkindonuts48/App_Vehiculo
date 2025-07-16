@@ -1,4 +1,3 @@
-// MaintenanceItemView.kt (añadido dropdown editable para tipo de mantenimiento según tipo de vehículo)
 package com.example.autocare.vehicle
 
 import android.app.DatePickerDialog

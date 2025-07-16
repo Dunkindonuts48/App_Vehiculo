@@ -1,4 +1,3 @@
-// MaintenanceListScreen.kt (con opción de eliminar mantenimientos)
 package com.example.autocare.vehicle
 
 import androidx.compose.foundation.layout.*
