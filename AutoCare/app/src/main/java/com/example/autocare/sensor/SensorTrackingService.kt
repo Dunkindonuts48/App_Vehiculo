@@ -34,7 +34,7 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
     private lateinit var sensorDataDao: SensorDataDao
     private lateinit var drivingSessionDao: DrivingSessionDao
     private var vehicleId: Int = -1
-    private var speed: Float = 0f
+    private var speed: Float = 0.0f
     private var accel = FloatArray(3)
     private var gyro = FloatArray(3)
     private var sessionStartTime: Long = 0L

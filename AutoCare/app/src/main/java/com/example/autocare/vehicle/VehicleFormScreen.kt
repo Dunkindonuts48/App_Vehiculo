@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.example.autocare.AppHeader
 import com.example.autocare.util.BrandModelRepository
 import java.util.*
 
@@ -79,6 +80,12 @@ fun VehicleFormScreen(
     var brandExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
+        topBar = {
+            AppHeader(
+                title = if (vehicleId == null) "Registrar Vehículo" else "Editar Vehículo",
+                onBack = { navController.popBackStack("list", false) }
+            )
+        },
         modifier = Modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets.systemBars,
         bottomBar = {

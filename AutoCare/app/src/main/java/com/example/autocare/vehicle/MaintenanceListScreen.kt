@@ -19,7 +19,10 @@ fun MaintenanceListScreen(vehicleId: Int, viewModel: VehicleViewModel, navContro
 
     Scaffold(
         topBar = {
-            AppHeader("Historial de Mantenimientos")
+            AppHeader(
+            title = "Historial de Mantenimientos",
+            onBack = { navController.popBackStack() }
+            )
         },
         content = { padding ->
             Column(modifier = Modifier.padding(padding).padding(16.dp)) {

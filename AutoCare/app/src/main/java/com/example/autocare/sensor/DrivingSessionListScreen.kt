@@ -23,7 +23,10 @@ fun DrivingSessionListScreen(vehicleId: Int, viewModel: VehicleViewModel, navCon
     val coroutineScope = rememberCoroutineScope()
     Scaffold(
         topBar = {
-            AppHeader("Sesiones de Conducción")
+            AppHeader(
+                title = "Sesiones de Conducción",
+                onBack = { navController.popBackStack() }
+            )
         },
         content = { padding ->
             Column(modifier = Modifier.padding(padding).padding(16.dp).fillMaxSize()) {
