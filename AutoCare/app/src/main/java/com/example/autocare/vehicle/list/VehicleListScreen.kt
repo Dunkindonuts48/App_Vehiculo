@@ -1,4 +1,5 @@
-package com.example.autocare.vehicle
+package com.example.autocare.vehicle.list
+
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -21,22 +22,30 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
-import kotlinx.coroutines.launch
 import com.example.autocare.AppHeader
 import com.example.autocare.util.getVehicleDisplayName
+import com.example.autocare.vehicle.VehicleViewModel
 
 @Composable
 fun VehicleListScreen(navController: NavHostController, viewModel: VehicleViewModel) {
     val vehicles by viewModel.vehicles.collectAsState()
-    val urgentVehicles = remember { mutableStateOf<Set<Int>>(emptySet()) }
-    val coroutineScope = rememberCoroutineScope()
+    val mixed by viewModel.mixedCounters.collectAsState()
+
     val context = LocalContext.current
+    val urgentSet = remember(mixed) {
+        mixed.filter { (_, counters) ->
+            counters.values.any { info ->
+                info.startsWith("0 ") &&
+                        (info.endsWith("días restantes") || info.endsWith("km restantes"))
+            }
+        }.keys
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
         onResult = { perms ->
             if (!perms.values.all { it }) {
-                Toast.makeText(context, "Permisos de ubicación no concedidos", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Permisos no concedidos", Toast.LENGTH_SHORT).show()
             }
         }
     )
@@ -45,15 +54,16 @@ fun VehicleListScreen(navController: NavHostController, viewModel: VehicleViewMo
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION
         ).apply {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) add(Manifest.permission.FOREGROUND_SERVICE_LOCATION)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                add(Manifest.permission.FOREGROUND_SERVICE_LOCATION)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                add(Manifest.permission.POST_NOTIFICATIONS)
         }
-        val needed = perms.filter { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }
-        if (needed.isNotEmpty()) permissionLauncher.launch(needed.toTypedArray())
-
-        coroutineScope.launch {
-            val urgent = viewModel.getVehiclesWithUrgentMaintenanceSuspended()
-            urgentVehicles.value = urgent.map { it.id }.toSet()
+        val needed = perms.filter {
+            ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (needed.isNotEmpty()) {
+            permissionLauncher.launch(needed.toTypedArray())
         }
     }
 
@@ -63,22 +73,21 @@ fun VehicleListScreen(navController: NavHostController, viewModel: VehicleViewMo
         contentWindowInsets = WindowInsets.systemBars
     ) { padding ->
         Column(
-            modifier = Modifier
+            Modifier
                 .padding(padding)
                 .padding(16.dp)
         ) {
             Button(
-                onClick = { navController.navigate("form") },
+                onClick = { navController.navigate("register/type") },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Añadir Vehículo")
             }
-            Spacer(modifier = Modifier.height(16.dp))
-
+            Spacer(Modifier.height(16.dp))
             LazyColumn {
                 items(vehicles) { vehicle ->
                     Card(
-                        modifier = Modifier
+                        Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp)
                             .clickable { navController.navigate("detail/${vehicle.id}") }
@@ -90,13 +99,13 @@ fun VehicleListScreen(navController: NavHostController, viewModel: VehicleViewMo
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = getVehicleDisplayName(vehicle),
+                                getVehicleDisplayName(vehicle),
                                 style = MaterialTheme.typography.bodyLarge,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            Spacer(modifier = Modifier.weight(1f))
-                            if (urgentVehicles.value.contains(vehicle.id)) {
+                            Spacer(Modifier.weight(1f))
+                            if (vehicle.id in urgentSet) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Box(
                                         Modifier
@@ -105,7 +114,7 @@ fun VehicleListScreen(navController: NavHostController, viewModel: VehicleViewMo
                                     )
                                     Spacer(Modifier.width(6.dp))
                                     Text(
-                                        "¡Mantenimiento urgente!",
+                                        "¡Urgente!",
                                         color = Color.Red,
                                         style = MaterialTheme.typography.bodySmall
                                     )

@@ -1,4 +1,4 @@
-package com.example.autocare.vehicle
+package com.example.autocare.vehicle.maintenance
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -9,5 +9,6 @@ data class Maintenance(
     val vehicleId: Int,
     val type: String,
     val date: String,
-    val cost: Double
+    val cost: Double,
+    val  mileageAtMaintenance: Int
 )

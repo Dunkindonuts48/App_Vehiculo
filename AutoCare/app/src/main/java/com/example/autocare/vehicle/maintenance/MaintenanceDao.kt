@@ -1,6 +1,9 @@
-package com.example.autocare.vehicle
+package com.example.autocare.vehicle.maintenance
 
-import androidx.room.*
+import androidx.room.Dao
+import androidx.room.Delete
+import androidx.room.Insert
+import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
 @Dao

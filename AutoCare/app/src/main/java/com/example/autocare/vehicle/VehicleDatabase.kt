@@ -8,13 +8,18 @@ import com.example.autocare.sensor.DrivingSession
 import com.example.autocare.sensor.DrivingSessionDao
 import com.example.autocare.sensor.SensorData
 import com.example.autocare.sensor.SensorDataDao
+import com.example.autocare.vehicle.maintenance.Maintenance
+import com.example.autocare.vehicle.maintenance.MaintenanceDao
+import com.example.autocare.vehicle.fuel.FuelEntry
+import com.example.autocare.vehicle.fuel.FuelEntryDao
 
-@Database(entities = [Vehicle::class, Maintenance::class, SensorData::class, DrivingSession::class], version = 1)
+@Database(entities = [Vehicle::class, Maintenance::class, SensorData::class, DrivingSession::class, FuelEntry::class], version = 6)
 abstract class VehicleDatabase : RoomDatabase() {
     abstract fun vehicleDao(): VehicleDao
     abstract fun maintenanceDao(): MaintenanceDao
     abstract fun sensorDataDao(): SensorDataDao
     abstract fun drivingSessionDao(): DrivingSessionDao
+    abstract fun fuelEntryDao(): FuelEntryDao
 
     companion object {
         @Volatile

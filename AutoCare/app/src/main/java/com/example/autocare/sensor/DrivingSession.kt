@@ -12,5 +12,6 @@ data class DrivingSession(
     val maxSpeed: Float,
     val averageSpeed: Float,
     val accelerations: Int,
-    val brakings: Int
+    val brakings: Int,
+    val distanceMeters: Float
 )

@@ -1,4 +1,4 @@
-package com.example.autocare.vehicle
+package com.example.autocare.vehicle.form
 
 import android.app.DatePickerDialog
 import androidx.compose.foundation.clickable
@@ -15,6 +15,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.example.autocare.AppHeader
 import com.example.autocare.util.BrandModelRepository
+import com.example.autocare.vehicle.Vehicle
+import com.example.autocare.vehicle.VehicleViewModel
 import java.util.*
 
 @Composable
@@ -104,7 +106,7 @@ fun VehicleFormScreen(
                         maintenanceFrequencyMonths = freqMonths.toIntOrNull() ?: 0,
                         alias = alias.ifBlank { null }
                     )
-                    if (vehicleId == null) viewModel.registerVehicle(data)
+                    if (vehicleId == null) viewModel.registerVehicleWithRevisions(data, emptyMap())
                     else viewModel.updateVehicle(data)
                     navController.popBackStack("list", inclusive = false)
                 },

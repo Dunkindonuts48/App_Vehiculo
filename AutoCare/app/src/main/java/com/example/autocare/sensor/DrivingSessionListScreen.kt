@@ -43,6 +43,7 @@ fun DrivingSessionListScreen(vehicleId: Int, viewModel: VehicleViewModel, navCon
                                     Text("Velocidad Media: ${"%.1f".format(session.averageSpeed * 3.6)} km/h")
                                     Text("Acelerones: ${session.accelerations}")
                                     Text("Frenazos: ${session.brakings}")
+                                    Text("Km Totales: ${session.distanceMeters}")
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Button(onClick = {
                                         coroutineScope.launch {

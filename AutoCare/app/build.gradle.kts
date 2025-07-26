@@ -56,8 +56,10 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.3.2")
     implementation("androidx.navigation:navigation-compose:2.9.0")
     implementation("com.jakewharton.threetenabp:threetenabp:1.4.9")
+    implementation ("io.coil-kt:coil-compose:2.2.2")
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
+    implementation ("androidx.compose.material:material-icons-extended:1.4.0")
 
-    // Room
     implementation(libs.room.runtime)
     kapt(libs.room.compiler)
     implementation(libs.room.ktx)

@@ -1,5 +1,4 @@
-// MaintenanceListScreen.kt (con opción de eliminar mantenimientos)
-package com.example.autocare.vehicle
+package com.example.autocare.vehicle.maintenance
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.example.autocare.AppHeader
+import com.example.autocare.vehicle.VehicleViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +40,7 @@ fun MaintenanceListScreen(vehicleId: Int, viewModel: VehicleViewModel, navContro
                                     Text("Tipo: ${m.type}", style = MaterialTheme.typography.bodyLarge)
                                     Text("Fecha: ${m.date}")
                                     Text("Coste: ${m.cost} €")
+                                    Text("Kilometraje: ${m.mileageAtMaintenance} km")
 
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Button(

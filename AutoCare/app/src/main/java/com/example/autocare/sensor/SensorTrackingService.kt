@@ -79,6 +79,7 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        isRunning = true
         vehicleId = intent?.getIntExtra("vehicleId", -1) ?: -1
         sessionStartTime = System.currentTimeMillis()
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -125,6 +126,7 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onDestroy() {
         super.onDestroy()
+        isRunning = false
         sensorManager.unregisterListener(this)
         locationManager.removeUpdates(this)
         if (vehicleId != -1) {
@@ -148,14 +150,16 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
                             //Log.d("Sesión", "Δv=$deltaSpeed, Δt=$deltaTime, a=$acceleration m/s²")
                             if (acceleration > 0.2f) {
                                 accelerations++
-                                //Log.i("Sesión", "🚀 Acelerón detectado ($acceleration m/s²)")
+                                //Log.i("Sesión", "Acelerón detectado ($acceleration m/s²)")
                             }
                             if (acceleration < -0.2f) {
                                 brakings++
-                                //Log.i("Sesión", "🛑 Frenazo detectado ($acceleration m/s²)")
+                                //Log.i("Sesión", "Frenazo detectado ($acceleration m/s²)")
                             }
                         }
                     }
+                    val durationSec = (endTime - sessionStartTime) / 1000f
+                    val meters = avgSpeed * durationSec
                     val session = DrivingSession(
                         vehicleId = vehicleId,
                         startTime = sessionStartTime,
@@ -163,7 +167,8 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
                         maxSpeed = maxSpeed,
                         averageSpeed = avgSpeed,
                         accelerations = accelerations,
-                        brakings = brakings
+                        brakings = brakings,
+                        distanceMeters = meters
                     )
                     drivingSessionDao.insert(session)
                 }
@@ -172,6 +177,9 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
     }
 
     companion object {
+        @Volatile
+        var isRunning = false
+
         suspend fun calculateAggressiveness(context: Context, vehicleId: Int): Float {
             val dao = VehicleDatabase.getDatabase(context).sensorDataDao()
             val data = dao.getByVehicle(vehicleId).first()
