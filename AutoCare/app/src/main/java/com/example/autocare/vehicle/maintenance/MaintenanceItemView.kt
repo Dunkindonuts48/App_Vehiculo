@@ -21,10 +21,10 @@ fun MaintenanceItemView(
     onCancel: () -> Unit
 ) {
     val commonAll = listOf(
-        "Neumáticos: presión y estado",
-        "Frenos: pastillas y discos",
+        "Neumáticos: estado",
+        "Frenos: pastillas",
+        "Frenos: discos",
         "Filtro de habitáculo",
-        "Luces: faros, intermitentes, luces de freno",
         "Líquido de frenos",
         "Batería 12 V"
     )
@@ -60,7 +60,6 @@ fun MaintenanceItemView(
         "Batería de tracción: estado y balance",
         "Líquido de refrigeración de batería",
         "Software/firmware del vehículo",
-        "Inspección de cableado de alta tensión (HV)",
         "Sistema de recarga: conectores",
         "Freno regenerativo"
     )

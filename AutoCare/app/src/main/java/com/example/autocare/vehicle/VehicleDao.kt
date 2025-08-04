@@ -15,6 +15,4 @@ interface VehicleDao {
     fun getAllVehicles(): Flow<List<Vehicle>>
     @Query("SELECT * FROM vehicles")
     suspend fun getAll(): List<Vehicle>
-
-
 }
