@@ -10,24 +10,31 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.autocare.vehicle.VehicleViewModel
 import com.example.autocare.util.getVehicleDisplayName
+import com.example.autocare.vehicle.maintenance.ReviewStatus
 
 @Composable
 fun HomeScreen(viewModel: VehicleViewModel) {
-    val mixedCounters by viewModel.mixedCounters.collectAsState()
-    var urgentVehicles by remember { mutableStateOf<List<String>>(emptyList()) }
+    // Nuevo: usamos nextMaint y la lista de vehículos
+    val nextMaintByVehicle by viewModel.nextMaint.collectAsState()
+    val vehicles by viewModel.vehicles.collectAsState(initial = emptyList())
 
-    LaunchedEffect(mixedCounters) {
-        urgentVehicles = mixedCounters
-            .filter { (_, counters) ->
-                counters.values.any { info ->
-                    info.startsWith("0 ") &&
-                            (info.endsWith("días restantes") || info.endsWith("km restantes"))
+    // Lista de vehículos con mantenimiento urgente
+    val urgentVehicles by remember(nextMaintByVehicle, vehicles) {
+        mutableStateOf(
+            vehicles
+                .filter { v ->
+                    val items = nextMaintByVehicle[v.id].orEmpty()
+                    // Define qué es "urgente"
+                    items.any { nm ->
+                        // Urgente si está vencido o muy cercano
+                        nm.status == ReviewStatus.OVERDUE ||
+                                (nm.status == ReviewStatus.SOON &&
+                                        ((nm.leftDays ?: Int.MAX_VALUE) <= 7 ||
+                                                (nm.leftKm   ?: Int.MAX_VALUE) <= 1000))
+                    }
                 }
-            }
-            .mapNotNull { (vehicleId, _) ->
-                viewModel.vehicles.value.firstOrNull { it.id == vehicleId }
-            }
-            .map { getVehicleDisplayName(it) }
+                .map { v -> getVehicleDisplayName(v) }
+        )
     }
 
     Scaffold(

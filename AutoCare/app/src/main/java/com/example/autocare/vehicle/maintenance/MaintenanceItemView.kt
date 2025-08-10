@@ -1,16 +1,25 @@
 package com.example.autocare.vehicle.maintenance
 
 import android.app.DatePickerDialog
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import java.text.SimpleDateFormat
-import java.util.*
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Calendar
+import java.util.Locale
 
+private val DISPLAY_FMT: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+private fun LocalDate.asDisplay(): String = this.format(DISPLAY_FMT)
+private fun parseDisplayDateOrToday(s: String?): LocalDate =
+    try { LocalDate.parse(s, DISPLAY_FMT) } catch (_: Exception) { LocalDate.now() }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MaintenanceItemView(
@@ -64,38 +73,39 @@ fun MaintenanceItemView(
         "Freno regenerativo"
     )
 
-    val t = vehicleType.lowercase()
+    val t = vehicleType.lowercase(Locale.getDefault())
     val typeOptions = remember(t) {
         mutableListOf<String>().apply {
             addAll(commonAll)
             if (!t.contains("eléctrico")) addAll(commonICEHybrid)
             when {
                 t.contains("gasolina") -> addAll(gasolina)
-                t.contains("diésel")   -> addAll(diesel)
-                t.contains("híbrido")  -> addAll(hybrid)
-                t.contains("eléctrico")-> addAll(electric)
+                t.contains("diésel") || t.contains("diesel") -> addAll(diesel)
+                t.contains("híbrido") || t.contains("hibrido") -> addAll(hybrid)
+                t.contains("eléctrico") || t.contains("electrico") -> addAll(electric)
             }
         }.distinct()
     }
 
     var type by remember { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
-    var date by remember { mutableStateOf("") }
+    var dateText by remember { mutableStateOf(LocalDate.now().asDisplay()) }
     var cost by remember { mutableStateOf("") }
-
     val context = LocalContext.current
     val calendar = Calendar.getInstance()
-
     val datePicker = DatePickerDialog(
         context,
         { _, y, m, d ->
-            val picked = Calendar.getInstance().apply { set(y, m, d) }
-            date = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(picked.time)
+            val picked = LocalDate.of(y, m + 1, d)
+            dateText = picked.asDisplay()
         },
         calendar.get(Calendar.YEAR),
         calendar.get(Calendar.MONTH),
         calendar.get(Calendar.DAY_OF_MONTH)
     )
+
+    fun toDoubleOrNullNormalized(s: String): Double? =
+        s.replace(',', '.').toDoubleOrNull()
 
     Surface(
         shape = MaterialTheme.shapes.medium,
@@ -121,7 +131,7 @@ fun MaintenanceItemView(
             ) {
                 OutlinedTextField(
                     value = type,
-                    onValueChange = { },
+                    onValueChange = {},
                     label = { Text("Tipo de mantenimiento") },
                     readOnly = true,
                     modifier = Modifier
@@ -148,9 +158,9 @@ fun MaintenanceItemView(
             Spacer(Modifier.height(8.dp))
 
             OutlinedTextField(
-                value = date,
-                onValueChange = { },
-                label = { Text("Fecha") },
+                value = dateText,
+                onValueChange = {},
+                label = { Text("Fecha (dd/MM/yyyy)") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { datePicker.show() },
@@ -163,6 +173,7 @@ fun MaintenanceItemView(
                 value = cost,
                 onValueChange = { cost = it },
                 label = { Text("Coste") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -182,15 +193,20 @@ fun MaintenanceItemView(
 
                 Button(
                     onClick = {
-                        val m = Maintenance(
+                        if (type.isBlank()) {
+                            Toast.makeText(context, "Selecciona un tipo", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        val costValue = toDoubleOrNullNormalized(cost) ?: 0.0
+                        val maintenance = Maintenance(
                             id = 0,
                             vehicleId = vehicleId,
                             type = type,
-                            date = date,
-                            cost = cost.toDoubleOrNull() ?: 0.0,
+                            date = parseDisplayDateOrToday(dateText),
+                            cost = costValue,
                             mileageAtMaintenance = currentMileage
                         )
-                        onSave(m)
+                        onSave(maintenance)
                     },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(

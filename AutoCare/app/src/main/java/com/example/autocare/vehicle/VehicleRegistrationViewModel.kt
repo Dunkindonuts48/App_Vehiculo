@@ -16,6 +16,7 @@ class VehicleRegistrationViewModel : ViewModel() {
     var lastRevision by mutableStateOf("")
     var alias by mutableStateOf("")
     val revisionDates = mutableStateMapOf<String, String>()
+    val revisionKms   = mutableStateMapOf<String, String>()
 
 
     fun isPlateValid() = plate.matches(Regex("\\d{4} [A-Z]{3}"))

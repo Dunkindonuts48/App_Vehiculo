@@ -106,7 +106,7 @@ fun VehicleFormScreen(
                         maintenanceFrequencyMonths = freqMonths.toIntOrNull() ?: 0,
                         alias = alias.ifBlank { null }
                     )
-                    if (vehicleId == null) viewModel.registerVehicleWithRevisions(data, emptyMap())
+                    if (vehicleId == null) viewModel.registerVehicleWithRevisions(data, emptyMap(), revisionsKms = emptyMap())
                     else viewModel.updateVehicle(data)
                     navController.popBackStack("list", inclusive = false)
                 },

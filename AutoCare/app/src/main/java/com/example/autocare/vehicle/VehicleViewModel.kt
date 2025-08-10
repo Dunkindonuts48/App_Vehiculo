@@ -8,13 +8,16 @@ import com.example.autocare.vehicle.fuel.FuelEntry
 import com.example.autocare.vehicle.fuel.FuelEntryDao
 import com.example.autocare.vehicle.maintenance.Maintenance
 import com.example.autocare.vehicle.maintenance.MaintenanceDao
+import com.example.autocare.vehicle.maintenance.NextMaintenance
+import com.example.autocare.vehicle.maintenance.ReviewStatus
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import org.threeten.bp.LocalDate
-import org.threeten.bp.format.DateTimeFormatter
-import org.threeten.bp.temporal.ChronoUnit
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.util.Locale
 
 class VehicleViewModel(
     private val dao: VehicleDao,
@@ -22,16 +25,21 @@ class VehicleViewModel(
     private val drivingSessionDao: DrivingSessionDao,
     private val fuelEntryDao: FuelEntryDao
 ) : ViewModel() {
-
     private val _vehicles = MutableStateFlow<List<Vehicle>>(emptyList())
     val vehicles: StateFlow<List<Vehicle>> = _vehicles.asStateFlow()
-
     private val _vehicleMaintenances = MutableStateFlow<Map<Int, List<Maintenance>>>(emptyMap())
     val vehicleMaintenances: StateFlow<Map<Int, List<Maintenance>>> = _vehicleMaintenances.asStateFlow()
-
     private val _isTracking = MutableStateFlow(false)
     val isTracking: StateFlow<Boolean> = _isTracking.asStateFlow()
+    private val _nextMaint = MutableStateFlow<Map<Int, List<NextMaintenance>>>(emptyMap())
+    val nextMaint: StateFlow<Map<Int, List<NextMaintenance>>> = _nextMaint.asStateFlow()
+    private val DISPLAY_FMT: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("dd/MM/yyyy").withLocale(Locale.getDefault())
 
+    private fun isKmType(type: String) = intervalKms.containsKey(type)
+    private fun isTimeType(type: String) = intervalMonths.containsKey(type)
+    private fun parseDisplayDateOrToday(s: String?): LocalDate =
+        try { LocalDate.parse(s, DISPLAY_FMT) } catch (_: Exception) { LocalDate.now() }
     private val intervalMonths = mapOf(
         "Neumáticos: estado" to 60,
         "Filtro de habitáculo" to 12,
@@ -51,7 +59,6 @@ class VehicleViewModel(
         "Sistema de recarga: conectores" to 24,
         "Freno regenerativo" to 12
     )
-
     private val intervalKms = mapOf(
         "Neumáticos: estado" to 60000,
         "Filtro de aire de motor" to 30000,
@@ -78,19 +85,13 @@ class VehicleViewModel(
         "Revisión del freno motor eléctrico" to 40000,
         "Líquido de refrigeración de batería" to 40000,
         "Freno regenerativo" to 15000
-        )
-
-    private val _mixedCounters = MutableStateFlow<Map<Int, Map<String, String>>>(emptyMap())
-    val mixedCounters: StateFlow<Map<Int, Map<String, String>>> = _mixedCounters.asStateFlow()
-
-    init {
-        loadVehicles()
-    }
-
+    )
+    init { loadVehicles() }
     fun loadVehicles() {
         viewModelScope.launch {
             val allVehicles = dao.getAll()
             _vehicles.value = allVehicles
+
             val maintenanceMap = mutableMapOf<Int, List<Maintenance>>()
             allVehicles.forEach { vehicle ->
                 maintenanceDao.getByVehicle(vehicle.id).collect { list ->
@@ -98,83 +99,74 @@ class VehicleViewModel(
                     _vehicleMaintenances.value = maintenanceMap.toMap()
                 }
             }
-            refreshMixedCounters()
+            refreshNextMaintenances()
         }
     }
-
     fun registerVehicleWithRevisions(
         vehicle: Vehicle,
-        revisions: Map<String, String>
+        revisionsDates: Map<String, String>,
+        revisionsKms: Map<String, String>
     ) {
         viewModelScope.launch {
             val newId = dao.insertVehicle(vehicle).toInt()
-            revisions.forEach { (type, date) ->
+
+            revisionsDates.forEach { (type, dateStr) ->
+                val kmAt = revisionsKms[type]?.toIntOrNull() ?: vehicle.mileage
                 maintenanceDao.insert(
                     Maintenance(
                         id = 0,
                         vehicleId = newId,
                         type = type,
-                        date = date,
+                        date = parseDisplayDateOrToday(dateStr),
                         cost = 0.0,
-                        mileageAtMaintenance = vehicle.mileage
+                        mileageAtMaintenance = kmAt
                     )
                 )
             }
             loadVehicles()
         }
     }
-    fun updateVehicle(vehicle: Vehicle) {
-        viewModelScope.launch {
-            dao.updateVehicle(vehicle)
-            loadVehicles()
-        }
+    fun updateVehicle(vehicle: Vehicle) = viewModelScope.launch {
+        dao.updateVehicle(vehicle); loadVehicles()
     }
-    fun deleteVehicle(vehicle: Vehicle) {
-        viewModelScope.launch {
-            dao.deleteVehicle(vehicle)
-            loadVehicles()
-        }
+    fun deleteVehicle(vehicle: Vehicle) = viewModelScope.launch {
+        dao.deleteVehicle(vehicle); loadVehicles()
     }
     fun getMaintenancesForVehicle(vehicleId: Int): StateFlow<List<Maintenance>> {
         val flow = MutableStateFlow<List<Maintenance>>(emptyList())
         viewModelScope.launch {
-            maintenanceDao.getByVehicle(vehicleId).collect {
-                flow.value = it
-            }
+            maintenanceDao.getByVehicle(vehicleId).collect { flow.value = it }
         }
         return flow.asStateFlow()
     }
-    fun onTrackingStarted() {
-        _isTracking.value = true
+    fun onTrackingStarted() { _isTracking.value = true }
+    fun onTrackingStopped() { _isTracking.value = false }
+    fun getDrivingSessionsForVehicle(vehicleId: Int): Flow<List<DrivingSession>> =
+        drivingSessionDao.getSessionsByVehicle(vehicleId)
+    fun registerMaintenance(maintenance: Maintenance) = viewModelScope.launch {
+        maintenanceDao.insert(maintenance); loadVehicles()
     }
-    fun onTrackingStopped() {
-        _isTracking.value = false
+    fun deleteMaintenance(maintenance: Maintenance) = viewModelScope.launch {
+        maintenanceDao.delete(maintenance); loadVehicles()
     }
-    fun getDrivingSessionsForVehicle(vehicleId: Int): Flow<List<DrivingSession>> {
-        return drivingSessionDao.getSessionsByVehicle(vehicleId)
+    private fun statusFrom(leftKm: Int?, leftDays: Int?): ReviewStatus {
+        if (leftKm != null && leftKm < 0) return ReviewStatus.OVERDUE
+        if (leftDays != null && leftDays < 0) return ReviewStatus.OVERDUE
+        if (leftKm != null && leftKm <= 5000) return ReviewStatus.SOON
+        if (leftDays != null && leftDays <= 30) return ReviewStatus.SOON
+        return ReviewStatus.OK
     }
-    fun registerMaintenance(maintenance: Maintenance) {
-        viewModelScope.launch {
-            maintenanceDao.insert(maintenance)
-            loadVehicles()
-        }
-    }
-    fun deleteMaintenance(maintenance: Maintenance) {
-        viewModelScope.launch {
-            maintenanceDao.delete(maintenance)
-            loadVehicles()
-        }
-    }
-    suspend fun computeNextMaintenancesMixed(vehicle: Vehicle): Map<String, String> = withContext(Dispatchers.IO) {
-        val fmt     = DateTimeFormatter.ofPattern("dd/MM/yyyy")
-        val today   = LocalDate.now()
+    private suspend fun computeNextMaintenancesStructured(
+        vehicle: Vehicle
+    ): List<NextMaintenance> = withContext(Dispatchers.IO) {
         val history = maintenanceDao.getByVehicle(vehicle.id).first()
+        val t = vehicle.type.lowercase(Locale.getDefault())
 
         val commonAll = listOf(
-            "Neumáticos: presión y estado",
-            "Frenos: pastillas y discos",
+            "Neumáticos: estado",
+            "Frenos: pastillas",
+            "Frenos: discos",
             "Filtro de habitáculo",
-            "Luces: faros, intermitentes, luces de freno",
             "Líquido de frenos",
             "Batería 12 V"
         )
@@ -215,8 +207,6 @@ class VehicleViewModel(
             "Freno regenerativo"
         )
 
-        val t = vehicle.type.lowercase()
-
         val sessions = drivingSessionDao.getSessionsByVehicle(vehicle.id).first()
         val extraKm = sessions.sumOf { it.distanceMeters.toDouble() / 1000 }.toInt()
         val currentKm = vehicle.mileage + extraKm
@@ -226,60 +216,52 @@ class VehicleViewModel(
             if (!t.contains("eléctrico")) addAll(commonICEHybrid)
             when {
                 t.contains("gasolina") -> addAll(gasolina)
-                t.contains("diésel")   -> addAll(diesel)
-                t.contains("híbrido")  -> addAll(hybrid)
-                t.contains("eléctrico")-> addAll(electric)
+                t.contains("diésel") || t.contains("diesel") -> addAll(diesel)
+                t.contains("híbrido") || t.contains("hibrido") -> addAll(hybrid)
+                t.contains("eléctrico") || t.contains("electrico") -> addAll(electric)
             }
         }.distinct()
 
         options.mapNotNull { type ->
-            val lastDate = history
-                .filter { it.type == type }
-                .maxByOrNull { LocalDate.parse(it.date, fmt) }
-                ?.let { LocalDate.parse(it.date, fmt) }
-                ?: LocalDate.parse(vehicle.purchaseDate, fmt)
+            val lastItemByDate = history.filter { it.type == type }.maxByOrNull { it.date }
+            val lastDate: LocalDate = lastItemByDate?.date ?: parseDisplayDateOrToday(vehicle.lastMaintenanceDate)
 
-            val lastKm = history
-                .filter { it.type == type }
-                .maxByOrNull { it.mileageAtMaintenance }
-                ?.mileageAtMaintenance
-                ?: vehicle.mileage
+            val lastItemByKm = history.filter { it.type == type }.maxByOrNull { it.mileageAtMaintenance }
+            val lastKm = lastItemByKm?.mileageAtMaintenance ?: vehicle.mileage
 
-            when {
-                intervalKms.containsKey(type) -> {
-                    val nextKm = lastKm + (intervalKms[type] ?: 0)
-                    val leftKm = nextKm - currentKm
-                    type to "${leftKm.coerceAtLeast(0)} km restantes"
-                }
-                intervalMonths.containsKey(type) -> {
-                    val nextDate = lastDate.plusMonths((intervalMonths[type] ?: 0).toLong())
-                    val days = ChronoUnit.DAYS.between(today, nextDate).toInt()
-                    type to if (days >= 0) "$days días restantes" else "Venció hace ${-days} días"
-                }
-                else -> null
-            }
-        }.toMap()
-    }
-    fun refreshMixedCounters() {
-        viewModelScope.launch {
-            val all = dao.getAll()
-            _mixedCounters.value = all.associate { v ->
-                v.id to computeNextMaintenancesMixed(v)
-            }
+            val stepKm = intervalKms[type]
+            val stepMonths = intervalMonths[type]
+
+            val nextKm = stepKm?.let { lastKm + it }
+            val leftKm = nextKm?.let { it - currentKm }
+
+            val nextDate = stepMonths?.let { lastDate.plusMonths(it.toLong()) }
+            val leftDays = nextDate?.let { ChronoUnit.DAYS.between(LocalDate.now(), it).toInt() }
+
+            if (stepKm == null && stepMonths == null) return@mapNotNull null
+
+            NextMaintenance(
+                type = type,
+                leftKm = leftKm,
+                leftDays = leftDays,
+                status = statusFrom(leftKm, leftDays),
+                nextKm = nextKm,
+                nextDate = nextDate
+            )
         }
     }
-    fun deleteDrivingSession(session: DrivingSession) {
+    fun refreshNextMaintenances() {
         viewModelScope.launch {
-            drivingSessionDao.delete(session)
+            val all = dao.getAll()
+            _nextMaint.value = all.associate { v ->
+                v.id to computeNextMaintenancesStructured(v)
+            }
         }
     }
     fun getFuelEntriesForVehicle(vehicleId: Int): Flow<List<FuelEntry>> =
         fuelEntryDao.getByVehicle(vehicleId)
-
-    fun insertFuelEntry(entry: FuelEntry) {
-        viewModelScope.launch {
-            fuelEntryDao.insert(entry)
-        }
+    fun insertFuelEntry(entry: FuelEntry) = viewModelScope.launch {
+        fuelEntryDao.insert(entry)
     }
     fun getTotalFuelCost(vehicleId: Int): Flow<Float> =
         fuelEntryDao.getByVehicle(vehicleId)
@@ -290,13 +272,14 @@ class VehicleViewModel(
     fun deleteFuelEntry(entry: FuelEntry) = viewModelScope.launch {
         fuelEntryDao.delete(entry)
     }
-
-    fun saveBluetoothForVehicle(vehicleId: Int, mac: String) {
-        viewModelScope.launch {
-            val all = dao.getAll()
-            val v = all.firstOrNull { it.id == vehicleId } ?: return@launch
-            dao.updateVehicle(v.copy(bluetoothMac = mac))
-            loadVehicles()
-        }
+    fun saveBluetoothForVehicle(vehicleId: Int, mac: String) = viewModelScope.launch {
+        val all = dao.getAll()
+        val v = all.firstOrNull { it.id == vehicleId } ?: return@launch
+        dao.updateVehicle(v.copy(bluetoothMac = mac))
+        loadVehicles()
     }
+    fun deleteDrivingSession(session: com.example.autocare.sensor.DrivingSession) =
+        viewModelScope.launch {
+            drivingSessionDao.delete(session)
+        }
 }

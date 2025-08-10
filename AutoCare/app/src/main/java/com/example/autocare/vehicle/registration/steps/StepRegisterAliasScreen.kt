@@ -36,7 +36,8 @@ fun StepRegisterAliasScreen(
                 onClick = {
                     mainVm.registerVehicleWithRevisions(
                         vm.toVehicle().copy(alias = vm.alias.ifBlank { null }),
-                        vm.revisionDates
+                        vm.revisionDates,
+                        revisionsKms = vm.revisionKms
                     )
                     nav.popBackStack("list", false)
                 },

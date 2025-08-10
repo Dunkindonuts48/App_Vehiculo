@@ -17,6 +17,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.autocare.R
+import com.example.autocare.util.Notifier
 import com.example.autocare.vehicle.VehicleDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -82,12 +83,17 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
         isRunning = true
         vehicleId = intent?.getIntExtra("vehicleId", -1) ?: -1
         sessionStartTime = System.currentTimeMillis()
+
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Seguimiento activo")
-            .setContentText("Recopilando datos de conducción...")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("Seguimiento activo")
+            .setContentText("Recopilando datos de conducción…")
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOnlyAlertOnce(true)
+            .setOngoing(true)
+            .setContentIntent(Notifier.pendingToTracking(this, vehicleId))
             .build()
+
         startForeground(NOTIFICATION_ID, notification)
         return START_STICKY
     }
@@ -197,11 +203,13 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
     private fun updateNotification(speed: Float) {
         val speedKmH = (speed * 3.6f).toInt()
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("Seguimiento en curso")
             .setContentText("Velocidad actual: $speedKmH km/h")
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOnlyAlertOnce(true)
+            .setOngoing(true)
+            .setContentIntent(Notifier.pendingToTracking(this, vehicleId))
             .build()
         notificationManager.notify(NOTIFICATION_ID, notification)
     }

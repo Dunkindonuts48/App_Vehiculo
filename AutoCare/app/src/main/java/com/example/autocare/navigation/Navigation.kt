@@ -5,6 +5,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navDeepLink
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.autocare.HomeScreen
@@ -83,8 +84,11 @@ fun AppNavigation(mainVm: VehicleViewModel) {
         }
 
         composable(
-            "tracking/{vehicleId}",
-            arguments = listOf(navArgument("vehicleId") { type = NavType.IntType })
+            route = "tracking/{vehicleId}",
+            arguments = listOf(navArgument("vehicleId") { type = NavType.IntType }),
+            deepLinks = listOf(
+                navDeepLink { uriPattern = "autocare://tracking/{vehicleId}" }
+            )
         ) { backStackEntry ->
             val id = backStackEntry.arguments?.getInt("vehicleId") ?: return@composable
             TrackingScreen(id, navController)

@@ -18,6 +18,16 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+        isCoreLibraryDesugaringEnabled = true
+    }
+
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -59,6 +69,8 @@ dependencies {
     implementation ("io.coil-kt:coil-compose:2.2.2")
     implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
     implementation ("androidx.compose.material:material-icons-extended:1.4.0")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 
     implementation(libs.room.runtime)
     kapt(libs.room.compiler)

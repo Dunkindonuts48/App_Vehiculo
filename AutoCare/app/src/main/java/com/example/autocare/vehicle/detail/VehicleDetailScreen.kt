@@ -23,6 +23,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -30,10 +32,10 @@ import androidx.navigation.NavHostController
 import com.example.autocare.AppHeader
 import com.example.autocare.sensor.SensorTrackingService
 import com.example.autocare.util.getVehicleDisplayName
-import com.example.autocare.vehicle.maintenance.MaintenanceItemView
 import com.example.autocare.vehicle.VehicleViewModel
+import com.example.autocare.vehicle.maintenance.MaintenanceItemView
+import com.example.autocare.vehicle.maintenance.ReviewStatus
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 
 @SuppressLint("InlinedApi")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,33 +51,36 @@ fun VehicleDetailScreen(
     val totalCost by remember(maintenances) {
         derivedStateOf { maintenances.sumOf { it.cost } }
     }
-    val counters by viewModel.mixedCounters.collectAsState()
-    LaunchedEffect(vehicle) { viewModel.refreshMixedCounters() }
-    val nexts = counters[vehicleId] ?: emptyMap()
+    val nextMaint by viewModel.nextMaint.collectAsState()
+    LaunchedEffect(vehicle) { viewModel.refreshNextMaintenances() }
+
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var showSheet by remember { mutableStateOf(false) }
     var showForm by remember { mutableStateOf(false) }
-    val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
+
+    val permLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { perms ->
         if (perms.values.all { it }) {
             startTrackingServiceAndNavigate(context, vehicle.id, navController)
         } else {
             Toast.makeText(context, "Permisos denegados", Toast.LENGTH_SHORT).show()
         }
     }
+
     val fuelEntries by viewModel
         .getFuelEntriesForVehicle(vehicleId)
         .collectAsState(initial = emptyList())
-    val fmt = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+
     val today = remember { LocalDate.now() }
-    val requestTrackingPermissions = { permLauncher.launch(getTrackingPermissions()) }
     val thisVehicle = vehicles.firstOrNull { it.id == vehicleId }
+
     val actions = buildList<Pair<String, () -> Unit>> {
         add("Editar Vehículo" to { navController.navigate("form/${vehicle.id}") })
         add((if (showForm) "Cancelar" else "Añadir mantenimiento") to { showForm = !showForm })
         add("Ver repostajes"        to { navController.navigate("fuel/${vehicle.id}") })
         add("Añadir repostaje"      to { navController.navigate("fuel_add/${vehicle.id}") })
-        add("Ver mantenimientos" to { navController.navigate("maintenance/${vehicle.id}") })
+        add("Ver mantenimientos"    to { navController.navigate("maintenance/${vehicle.id}") })
         add((if (!SensorTrackingService.isRunning) "Iniciar seguimiento" else "Ir a seguimiento") to {
             if (!SensorTrackingService.isRunning) {
                 permLauncher.launch(getTrackingPermissions())
@@ -84,34 +89,26 @@ fun VehicleDetailScreen(
         })
         add("Sesiones de conducción" to { navController.navigate("sessions/${vehicle.id}") })
         add("Vincular Bluetooth" to { navController.navigate("bluetooth/${vehicle.id}") })
-        add("Eliminar Vehículo" to { viewModel.deleteVehicle(vehicle)
+        add("Eliminar Vehículo" to {
+            viewModel.deleteVehicle(vehicle)
             navController.popBackStack("list", false)
         })
     }
-    val (monthTotal, yearTotal, allTotal) = remember(fuelEntries) {
-        var m = 0f
-        var y = 0f
-        var a = 0f
 
+    val (monthTotal, yearTotal, allTotal) = remember(fuelEntries) {
+        var m = 0f; var y = 0f; var a = 0f
         fuelEntries.forEach { e ->
-            val date = try {
-                LocalDate.parse(e.date, fmt)
-            } catch (_: Exception) {
-                null
-            }
+            val date = e.date
             val cost = e.liters * e.pricePerLiter
             a += cost
-            if (date != null) {
-                if (date.year == today.year) {
-                    y += cost
-                    if (date.month == today.month) {
-                        m += cost
-                    }
-                }
+            if (date.year == today.year) {
+                y += cost
+                if (date.month == today.month) m += cost
             }
         }
         Triple(m, y, a)
     }
+
     val sessions by viewModel.getDrivingSessionsForVehicle(vehicleId)
         .collectAsState(initial = emptyList())
     val extraKm = remember(sessions) {
@@ -144,32 +141,15 @@ fun VehicleDetailScreen(
                 )
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = spacedBy(8.dp)) {
-                        vehicle?.let { v ->
-                            val displayKm = v.mileage + extraKm
-                            thisVehicle?.bluetoothMac?.let { mac ->
-                                Text("Bluetooth vinculado: $mac", style = MaterialTheme.typography.bodyLarge)
-                            }
-                            Text(
-                                "Marca: ${vehicle.brand}",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            Text(
-                                "Modelo: ${vehicle.model}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                "Tipo: ${vehicle.type}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                "Matrícula: ${vehicle.plateNumber}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                "Kilometraje: $displayKm km",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                        val displayKm = vehicle.mileage + extraKm
+                        thisVehicle?.bluetoothMac?.let { mac ->
+                            Text("Bluetooth vinculado: $mac", style = MaterialTheme.typography.bodyLarge)
                         }
+                        Text("Marca: ${vehicle.brand}", style = MaterialTheme.typography.bodyLarge)
+                        Text("Modelo: ${vehicle.model}", style = MaterialTheme.typography.bodyMedium)
+                        Text("Tipo: ${vehicle.type}", style = MaterialTheme.typography.bodyMedium)
+                        Text("Matrícula: ${vehicle.plateNumber}", style = MaterialTheme.typography.bodyMedium)
+                        Text("Kilometraje: $displayKm km", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
@@ -196,50 +176,89 @@ fun VehicleDetailScreen(
                         Text("%.2f €".format(totalCost), style = MaterialTheme.typography.titleLarge)
                     }
                 }
+
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
                     Column(Modifier.padding(12.dp), verticalArrangement = spacedBy(8.dp)) {
                         Text("Próximos mantenimientos:", style = MaterialTheme.typography.titleMedium)
-                        if (nexts.isEmpty()) {
+                        val items = nextMaint[vehicleId].orEmpty()
+                        if (items.isEmpty()) {
                             Text("(calculando…)", style = MaterialTheme.typography.bodySmall)
                         } else {
-                            nexts.forEach { (type, info) ->
-                                val (numStr, unit) = info.split(" ", limit = 2)
-                                val num = numStr.toIntOrNull() ?: 0
-                                val bg = when {
-                                    info.startsWith("Venció") ->
-                                        Color(0xFFF44336)
-                                    unit.startsWith("km") && num <= 1000 ->
-                                        Color(0xFFF44336)
-                                    unit.startsWith("días") && num <= 20 ->
-                                        Color(0xFFF44336)
-                                    unit.startsWith("km") && num < 5000 ->
-                                        Color(0xFFFFC107)
-                                    unit.startsWith("días") && num in 21 until 60 ->
-                                        Color(0xFFFFC107)
-                                    else ->
-                                        Color(0xFF4CAF50)
+                            items.forEach { nm ->
+                                val bg = when (nm.status) {
+                                    ReviewStatus.OVERDUE -> Color(0xFFF44336)
+                                    ReviewStatus.SOON    -> Color(0xFFFFC107)
+                                    ReviewStatus.OK      -> Color(0xFF4CAF50)
                                 }
-                                val display = if (unit.startsWith("días") && num > 365) {
-                                    val years = num / 365
-                                    val days = num % 365
-                                    "$years año${if (years > 1) "s" else ""} y $days días"
-                                } else info
-                                Row(
+
+                                val kmText: String? = nm.leftKm?.let { k ->
+                                    if (k >= 0) "$k km Restantes" else "Venció hace ${-k} km"
+                                }
+                                val daysText: String? = nm.leftDays?.let { d ->
+                                    if (d >= 365) {
+                                        val years = d / 365
+                                        val days = d % 365
+                                        "$years año${if (years > 1) "s" else ""} y $days días"
+                                    } else {
+                                        if (d >= 0) "$d días Restantes" else "Venció hace ${-d} días"
+                                    }
+                                }
+
+                                Column(
                                     Modifier
                                         .fillMaxWidth()
-                                        .border(1.dp, Color.Black, RoundedCornerShape(4.dp))
-                                        .background(bg.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
-                                        .padding(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                        .height(84.dp) // misma altura para todas
+                                        .border(1.dp, Color.Black, RoundedCornerShape(6.dp))
+                                        .background(bg.copy(alpha = 0.18f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
                                 ) {
-                                    Text(type, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                                    Text(display, style = MaterialTheme.typography.bodySmall)
+                                    Text(
+                                        nm.type,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 6.dp),
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                        textAlign = TextAlign.Center
+                                    )
+
+                                    if (kmText != null && daysText != null) {
+                                        // Dos columnas independientes
+                                        Row(
+                                            Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                kmText,
+                                                modifier = Modifier.weight(1f),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                textAlign = TextAlign.Start
+                                            )
+                                            Text(
+                                                daysText,
+                                                modifier = Modifier.weight(1f),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                textAlign = TextAlign.End
+                                            )
+                                        }
+                                    } else {
+                                        // Sólo una métrica: la centramos
+                                        Text(
+                                            kmText ?: daysText ?: "-",
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 2.dp),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
+
             if (showForm) {
                 Surface(
                     modifier = Modifier
@@ -256,13 +275,14 @@ fun VehicleDetailScreen(
                         currentMileage = vehicle.mileage,
                         onSave = {
                             viewModel.registerMaintenance(it)
-                            viewModel.refreshMixedCounters()
+                            viewModel.refreshNextMaintenances()
                             showForm = false
                         },
                         onCancel = { showForm = false }
                     )
                 }
             }
+
             if (showSheet) {
                 ModalBottomSheet(
                     onDismissRequest = { showSheet = false },
@@ -279,9 +299,7 @@ fun VehicleDetailScreen(
                                 colors = if (label == "Eliminar Vehículo")
                                     ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                                 else ButtonDefaults.buttonColors()
-                            ) {
-                                Text(label)
-                            }
+                            ) { Text(label) }
                         }
                     }
                 }

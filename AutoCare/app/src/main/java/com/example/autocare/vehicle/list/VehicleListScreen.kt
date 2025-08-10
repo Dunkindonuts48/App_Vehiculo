@@ -24,21 +24,28 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import com.example.autocare.AppHeader
 import com.example.autocare.util.getVehicleDisplayName
+import com.example.autocare.vehicle.maintenance.ReviewStatus
 import com.example.autocare.vehicle.VehicleViewModel
 
 @Composable
 fun VehicleListScreen(navController: NavHostController, viewModel: VehicleViewModel) {
-    val vehicles by viewModel.vehicles.collectAsState()
-    val mixed by viewModel.mixedCounters.collectAsState()
+    val vehicles by viewModel.vehicles.collectAsState(initial = emptyList())
+    val nextMaintByVehicle by viewModel.nextMaint.collectAsState()
 
     val context = LocalContext.current
-    val urgentSet = remember(mixed) {
-        mixed.filter { (_, counters) ->
-            counters.values.any { info ->
-                info.startsWith("0 ") &&
-                        (info.endsWith("días restantes") || info.endsWith("km restantes"))
+
+    // Urgente si: OVERDUE, o SOON con <=7 días o <=1000 km restantes
+    val urgentSet: Set<Int> = remember(nextMaintByVehicle) {
+        nextMaintByVehicle
+            .filter { (_, list) ->
+                list.any { nm ->
+                    nm.status == ReviewStatus.OVERDUE ||
+                            (nm.status == ReviewStatus.SOON &&
+                                    ((nm.leftDays ?: Int.MAX_VALUE) <= 7 ||
+                                            (nm.leftKm   ?: Int.MAX_VALUE) <= 1000))
+                }
             }
-        }.keys
+            .keys
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -49,6 +56,7 @@ fun VehicleListScreen(navController: NavHostController, viewModel: VehicleViewMo
             }
         }
     )
+
     LaunchedEffect(Unit) {
         val perms = mutableListOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
