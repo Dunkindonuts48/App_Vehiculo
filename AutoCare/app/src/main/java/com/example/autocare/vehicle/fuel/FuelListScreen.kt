@@ -5,10 +5,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,9 +36,22 @@ fun FuelListScreen(
 
     Scaffold(
         topBar = { AppHeader("Repostajes", onBack = { navController.popBackStack() }) },
+
         floatingActionButton = {
-            FloatingActionButton(onClick = { navController.navigate("fuel_add/$vehicleId") }) {
-                Icon(Icons.Default.LocalGasStation, contentDescription = "Añadir repostaje")
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(bottom = 8.dp)
+            ) {
+                FloatingActionButton(
+                    onClick = { navController.navigate("stats/$vehicleId") }
+                ) {
+                    Icon(Icons.Default.Insights, contentDescription = "Ver estadísticas")
+                }
+                ExtendedFloatingActionButton(
+                    onClick = { navController.navigate("fuel_add/$vehicleId") },
+                    text = { Text("Añadir") },
+                    icon = { Icon(Icons.Default.LocalGasStation, contentDescription = null) }
+                )
             }
         }
     ) { padding ->
@@ -50,9 +65,10 @@ fun FuelListScreen(
             Spacer(Modifier.height(8.dp))
             LazyColumn {
                 items(entries) { e ->
-                    Card(Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
+                    Card(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
                     ) {
                         Column(Modifier.padding(12.dp)) {
                             Text("Fecha: ${e.date}")
@@ -62,8 +78,10 @@ fun FuelListScreen(
                             Text("Total: %.2f €".format(e.liters * e.pricePerLiter))
                             Spacer(Modifier.height(8.dp))
                             Button(
-                                onClick = { viewModel.deleteFuelEntry(e); },
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                onClick = { viewModel.deleteFuelEntry(e) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                ),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text("Eliminar repostaje")

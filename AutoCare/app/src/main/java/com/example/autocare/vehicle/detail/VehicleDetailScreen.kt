@@ -10,11 +10,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
@@ -23,8 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -34,6 +33,7 @@ import com.example.autocare.sensor.SensorTrackingService
 import com.example.autocare.util.getVehicleDisplayName
 import com.example.autocare.vehicle.VehicleViewModel
 import com.example.autocare.vehicle.maintenance.MaintenanceItemView
+import com.example.autocare.vehicle.maintenance.NextMaintenance
 import com.example.autocare.vehicle.maintenance.ReviewStatus
 import java.time.LocalDate
 
@@ -47,10 +47,10 @@ fun VehicleDetailScreen(
 ) {
     val vehicles by viewModel.vehicles.collectAsState(initial = emptyList())
     val vehicle = vehicles.firstOrNull { it.id == vehicleId } ?: return
+
     val maintenances by viewModel.getMaintenancesForVehicle(vehicleId).collectAsState(initial = emptyList())
-    val totalCost by remember(maintenances) {
-        derivedStateOf { maintenances.sumOf { it.cost } }
-    }
+    val totalCost by remember(maintenances) { derivedStateOf { maintenances.sumOf { it.cost } } }
+
     val nextMaint by viewModel.nextMaint.collectAsState()
     LaunchedEffect(vehicle) { viewModel.refreshNextMaintenances() }
 
@@ -68,31 +68,46 @@ fun VehicleDetailScreen(
         }
     }
 
-    val fuelEntries by viewModel
-        .getFuelEntriesForVehicle(vehicleId)
-        .collectAsState(initial = emptyList())
-
+    val fuelEntries by viewModel.getFuelEntriesForVehicle(vehicleId).collectAsState(initial = emptyList())
     val today = remember { LocalDate.now() }
     val thisVehicle = vehicles.firstOrNull { it.id == vehicleId }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     val actions = buildList<Pair<String, () -> Unit>> {
-        add("Editar Vehículo" to { navController.navigate("form/${vehicle.id}") })
+        add("Añadir repostaje" to { navController.navigate("fuel_add/${vehicle.id}") })
         add((if (showForm) "Cancelar" else "Añadir mantenimiento") to { showForm = !showForm })
-        add("Ver repostajes"        to { navController.navigate("fuel/${vehicle.id}") })
-        add("Añadir repostaje"      to { navController.navigate("fuel_add/${vehicle.id}") })
-        add("Ver mantenimientos"    to { navController.navigate("maintenance/${vehicle.id}") })
+        add("Ver mantenimientos" to { navController.navigate("maintenance/${vehicle.id}") })
         add((if (!SensorTrackingService.isRunning) "Iniciar seguimiento" else "Ir a seguimiento") to {
-            if (!SensorTrackingService.isRunning) {
-                permLauncher.launch(getTrackingPermissions())
-            }
+            if (!SensorTrackingService.isRunning) permLauncher.launch(getTrackingPermissions())
             navController.navigate("tracking/$vehicleId")
         })
         add("Sesiones de conducción" to { navController.navigate("sessions/${vehicle.id}") })
         add("Vincular Bluetooth" to { navController.navigate("bluetooth/${vehicle.id}") })
         add("Eliminar Vehículo" to {
-            viewModel.deleteVehicle(vehicle)
-            navController.popBackStack("list", false)
+            showDeleteConfirm = true
         })
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Confirmar eliminación") },
+            text = { Text("¿Estás seguro de que quieres eliminar este vehículo? Esta acción no se puede deshacer.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteVehicle(vehicle)
+                    navController.popBackStack("list", false)
+                    showDeleteConfirm = false
+                }) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 
     val (monthTotal, yearTotal, allTotal) = remember(fuelEntries) {
@@ -111,9 +126,7 @@ fun VehicleDetailScreen(
 
     val sessions by viewModel.getDrivingSessionsForVehicle(vehicleId)
         .collectAsState(initial = emptyList())
-    val extraKm = remember(sessions) {
-        sessions.sumOf { it.distanceMeters.toDouble() / 1000 }.toInt()
-    }
+    val extraKm = remember(sessions) { sessions.sumOf { it.distanceMeters.toDouble() / 1000 }.toInt() }
 
     Scaffold(
         topBar = { AppHeader(title = "Vehículo", onBack = { navController.popBackStack() }) },
@@ -131,7 +144,7 @@ fun VehicleDetailScreen(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
-                verticalArrangement = spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
                     getVehicleDisplayName(vehicle),
@@ -139,8 +152,8 @@ fun VehicleDetailScreen(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = spacedBy(8.dp)) {
+                Card(Modifier.fillMaxWidth().clickable { navController.navigate("form/${vehicle.id}") }, shape = RoundedCornerShape(12.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         val displayKm = vehicle.mileage + extraKm
                         thisVehicle?.bluetoothMac?.let { mac ->
                             Text("Bluetooth vinculado: $mac", style = MaterialTheme.typography.bodyLarge)
@@ -152,8 +165,9 @@ fun VehicleDetailScreen(
                         Text("Kilometraje: $displayKm km", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = spacedBy(8.dp)) {
+
+                Card(Modifier.fillMaxWidth().clickable { navController.navigate("fuel/${vehicle.id}") }, shape = RoundedCornerShape(12.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Gasto combustible", style = MaterialTheme.typography.titleMedium)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Este mes", style = MaterialTheme.typography.bodyLarge)
@@ -170,89 +184,23 @@ fun VehicleDetailScreen(
                         }
                     }
                 }
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = spacedBy(4.dp)) {
+
+                Card(Modifier.fillMaxWidth().clickable { navController.navigate("maintenance/${vehicle.id}") }, shape = RoundedCornerShape(12.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("Gasto total", style = MaterialTheme.typography.titleMedium)
                         Text("%.2f €".format(totalCost), style = MaterialTheme.typography.titleLarge)
                     }
                 }
 
-                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = spacedBy(8.dp)) {
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Próximos mantenimientos:", style = MaterialTheme.typography.titleMedium)
                         val items = nextMaint[vehicleId].orEmpty()
                         if (items.isEmpty()) {
                             Text("(calculando…)", style = MaterialTheme.typography.bodySmall)
                         } else {
                             items.forEach { nm ->
-                                val bg = when (nm.status) {
-                                    ReviewStatus.OVERDUE -> Color(0xFFF44336)
-                                    ReviewStatus.SOON    -> Color(0xFFFFC107)
-                                    ReviewStatus.OK      -> Color(0xFF4CAF50)
-                                }
-
-                                val kmText: String? = nm.leftKm?.let { k ->
-                                    if (k >= 0) "$k km Restantes" else "Venció hace ${-k} km"
-                                }
-                                val daysText: String? = nm.leftDays?.let { d ->
-                                    if (d >= 365) {
-                                        val years = d / 365
-                                        val days = d % 365
-                                        "$years año${if (years > 1) "s" else ""} y $days días"
-                                    } else {
-                                        if (d >= 0) "$d días Restantes" else "Venció hace ${-d} días"
-                                    }
-                                }
-
-                                Column(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .height(84.dp) // misma altura para todas
-                                        .border(1.dp, Color.Black, RoundedCornerShape(6.dp))
-                                        .background(bg.copy(alpha = 0.18f), RoundedCornerShape(6.dp))
-                                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                                ) {
-                                    Text(
-                                        nm.type,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(bottom = 6.dp),
-                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                        textAlign = TextAlign.Center
-                                    )
-
-                                    if (kmText != null && daysText != null) {
-                                        // Dos columnas independientes
-                                        Row(
-                                            Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                kmText,
-                                                modifier = Modifier.weight(1f),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                textAlign = TextAlign.Start
-                                            )
-                                            Text(
-                                                daysText,
-                                                modifier = Modifier.weight(1f),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                textAlign = TextAlign.End
-                                            )
-                                        }
-                                    } else {
-                                        // Sólo una métrica: la centramos
-                                        Text(
-                                            kmText ?: daysText ?: "-",
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(top = 2.dp),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            textAlign = TextAlign.Center
-                                        )
-                                    }
-                                }
+                                MaintenanceRow(nm)
                             }
                         }
                     }
@@ -288,7 +236,7 @@ fun VehicleDetailScreen(
                     onDismissRequest = { showSheet = false },
                     sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
                 ) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = spacedBy(8.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         actions.forEach { (label, action) ->
                             Button(
                                 onClick = {
@@ -308,6 +256,100 @@ fun VehicleDetailScreen(
     }
 }
 
+@Composable
+private fun MaintenanceRow(nm: NextMaintenance) {
+    val bg = statusBg(nm.status)
+    val outline = statusOutline(nm.status)
+
+    val rowHeight = 96.dp
+    val shape = RoundedCornerShape(10.dp)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(rowHeight)
+            .background(bg, shape)
+            .border(1.dp, outline, shape)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            Text(nm.type, style = MaterialTheme.typography.titleMedium)
+        }
+
+        if (nm.leftKm != null && nm.leftDays != null) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        formatKm(nm.leftKm),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        formatDays(nm.leftDays),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        } else {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                Text(
+                    nm.leftKm?.let { formatKm(it) } ?: nm.leftDays?.let { formatDays(it) } ?: "-",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        }
+    }
+}
+
+private fun statusBg(s: ReviewStatus): Color = when (s) {
+    ReviewStatus.OVERDUE -> Color(0x33F44336)
+    ReviewStatus.SOON    -> Color(0x33FFC107)
+    ReviewStatus.OK      -> Color(0x334CAF50)
+}
+
+private fun statusOutline(s: ReviewStatus): Color = when (s) {
+    ReviewStatus.OVERDUE -> Color(0xFFB71C1C)
+    ReviewStatus.SOON    -> Color(0xFFFFA000)
+    ReviewStatus.OK      -> Color(0xFF2E7D32)
+}
+
+private fun formatKm(leftKm: Int): String =
+    if (leftKm >= 0) "$leftKm km restantes" else "Venció hace ${-leftKm} km"
+
+private fun formatDays(leftDays: Int): String =
+    if (leftDays >= 0) {
+        if (leftDays >= 365) {
+            val years = leftDays / 365
+            val days = leftDays % 365
+            "$years año${if (years > 1) "s" else ""} y $days días restantes"
+        } else {
+            "$leftDays días restantes"
+        }
+    } else {
+        "Venció hace ${-leftDays} días"
+    }
+
 private fun getTrackingPermissions(): Array<String> = mutableListOf<String>().apply {
     add(Manifest.permission.ACCESS_FINE_LOCATION)
     add(Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -322,9 +364,11 @@ private fun startTrackingServiceAndNavigate(
 ) {
     Intent(context, SensorTrackingService::class.java).apply {
         putExtra("vehicleId", vehicleId)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(this)
-        else context.startService(this)
+        } else {
+            context.startService(this)
+        }
     }
     navController.navigate("tracking/$vehicleId")
 }

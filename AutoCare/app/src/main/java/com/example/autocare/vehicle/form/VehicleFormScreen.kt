@@ -12,12 +12,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.example.autocare.AppHeader
 import com.example.autocare.util.BrandModelRepository
 import com.example.autocare.vehicle.Vehicle
 import com.example.autocare.vehicle.VehicleViewModel
-import java.util.*
+import java.util.Calendar
 
 @Composable
 operator fun PaddingValues.plus(other: PaddingValues): PaddingValues {
@@ -39,36 +40,37 @@ fun VehicleFormScreen(
 ) {
     val context = LocalContext.current
     val repo = remember { BrandModelRepository(context) }
-    val brands = remember { repo.getBrands().map { it.name } }
-
-    val existing = vehicleId
-        ?.let { id ->
-            viewModel.vehicles.collectAsState().value.find { it.id == id }
-        }
-
+    val allBrands = remember { repo.getBrands().map { it.name } }
+    val existing = vehicleId?.let { id -> viewModel.vehicles.collectAsState().value.find { it.id == id } }
+    val types = listOf("Gasolina", "Diésel", "Eléctrico", "Híbrido")
     var type by remember { mutableStateOf(existing?.type ?: "") }
     var brand by remember { mutableStateOf(existing?.brand ?: "") }
+    var brandExpanded by remember { mutableStateOf(false) }
+    var brandFilter by remember { mutableStateOf(brand) }
     var model by remember { mutableStateOf(existing?.model ?: "") }
     var plate by remember { mutableStateOf(existing?.plateNumber ?: "") }
     var mileage by remember { mutableStateOf((existing?.mileage ?: 0).toString()) }
     var purchaseDate by remember { mutableStateOf(existing?.purchaseDate ?: "") }
-    var lastReviewDate by remember { mutableStateOf(existing?.lastMaintenanceDate ?: "") }
-    var freqKm by remember { mutableStateOf((existing?.maintenanceFrequencyKm ?: 0).toString()) }
-    var freqMonths by remember { mutableStateOf((existing?.maintenanceFrequencyMonths ?: 0).toString()) }
     var alias by remember { mutableStateOf(existing?.alias ?: "") }
-
-    val types = listOf("Gasolina", "Diésel", "Eléctrico", "Híbrido")
-    val monthsOptions = (0..100).map { it.toString() }
+    var triedSave by remember { mutableStateOf(false) }
+    val typeError = triedSave && type.isBlank()
+    val brandError = triedSave && brand.isBlank()
+    val plateError = triedSave && plate.isBlank()
+    val mileageError = triedSave && (mileage.isBlank() || (mileage.toIntOrNull() ?: -1) < 0)
+    val purchaseDateError = triedSave && purchaseDate.isBlank()
+    val isFormValid = !typeError && !brandError && !plateError && !mileageError && !purchaseDateError
 
     fun showDatePicker(current: String, onDateSelected: (String) -> Unit) {
         val cal = Calendar.getInstance().apply {
-            current.split("/").mapNotNull(String::toIntOrNull)
-                .takeIf { it.size == 3 }
-                ?.let { (d, m, y) ->
-                    set(Calendar.DAY_OF_MONTH, d)
-                    set(Calendar.MONTH, m - 1)
-                    set(Calendar.YEAR, y)
-                }
+            val parts = current.split("/")
+            if (parts.size == 3) {
+                val d = parts[0].toIntOrNull() ?: get(Calendar.DAY_OF_MONTH)
+                val m = (parts[1].toIntOrNull() ?: (get(Calendar.MONTH) + 1)) - 1
+                val y = parts[2].toIntOrNull() ?: get(Calendar.YEAR)
+                set(Calendar.DAY_OF_MONTH, d)
+                set(Calendar.MONTH, m.coerceIn(0, 11))
+                set(Calendar.YEAR, y)
+            }
         }
         DatePickerDialog(
             context,
@@ -78,8 +80,6 @@ fun VehicleFormScreen(
             cal.get(Calendar.DAY_OF_MONTH)
         ).show()
     }
-
-    var brandExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -93,23 +93,34 @@ fun VehicleFormScreen(
         bottomBar = {
             Button(
                 onClick = {
+                    triedSave = true
+                    if (!isFormValid) return@Button
+
                     val data = Vehicle(
                         id = existing?.id ?: 0,
-                        brand = brand,
-                        model = model,
-                        type = type,
-                        plateNumber = plate,
+                        brand = brand.trim(),
+                        model = model.trim(),
+                        type = type.trim(),
+                        plateNumber = plate.trim(),
                         mileage = mileage.toIntOrNull() ?: 0,
-                        purchaseDate = purchaseDate,
-                        lastMaintenanceDate = lastReviewDate,
-                        maintenanceFrequencyKm = freqKm.toIntOrNull() ?: 0,
-                        maintenanceFrequencyMonths = freqMonths.toIntOrNull() ?: 0,
+                        purchaseDate = purchaseDate.trim(),
+                        lastMaintenanceDate = existing?.lastMaintenanceDate ?: "",
+                        maintenanceFrequencyKm = 0,
+                        maintenanceFrequencyMonths = 0,
                         alias = alias.ifBlank { null }
                     )
-                    if (vehicleId == null) viewModel.registerVehicleWithRevisions(data, emptyMap(), revisionsKms = emptyMap())
-                    else viewModel.updateVehicle(data)
+                    if (vehicleId == null) {
+                        viewModel.registerVehicleWithRevisions(
+                            data,
+                            revisionsDates = emptyMap<String, String>(),
+                            revisionsKms   = emptyMap<String, String>()
+                        )
+                    } else {
+                        viewModel.updateVehicle(data)
+                    }
                     navController.popBackStack("list", inclusive = false)
                 },
+                enabled = isFormValid,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
@@ -129,8 +140,16 @@ fun VehicleFormScreen(
                     style = MaterialTheme.typography.headlineSmall
                 )
             }
+
             item {
-                DropdownField("Tipo", type, types) { type = it }
+                DropdownField(
+                    label = "Tipo",
+                    selected = type,
+                    options = types,
+                    onSelect = { type = it },
+                    isError = typeError,
+                    supportingText = { if (typeError) Text("El tipo es obligatorio", fontSize = 12.sp) }
+                )
             }
             item {
                 ExposedDropdownMenuBox(
@@ -138,12 +157,16 @@ fun VehicleFormScreen(
                     onExpandedChange = { brandExpanded = it }
                 ) {
                     OutlinedTextField(
-                        value = brand,
+                        value = brandFilter,
                         onValueChange = {
-                            brand = it
+                            brandFilter = it
                             brandExpanded = true
                         },
                         label = { Text("Marca") },
+                        isError = brandError,
+                        supportingText = {
+                            if (brandError) Text("La marca es obligatoria", fontSize = 12.sp)
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .menuAnchor(),
@@ -151,18 +174,33 @@ fun VehicleFormScreen(
                             ExposedDropdownMenuDefaults.TrailingIcon(expanded = brandExpanded)
                         }
                     )
+
+                    val filtered = remember(brandFilter, allBrands) {
+                        if (brandFilter.isBlank()) allBrands
+                        else allBrands.filter { b -> b.contains(brandFilter, ignoreCase = true) }
+                    }
+
                     ExposedDropdownMenu(
                         expanded = brandExpanded,
                         onDismissRequest = { brandExpanded = false }
                     ) {
-                        brands.forEach { option ->
+                        if (filtered.isEmpty()) {
                             DropdownMenuItem(
-                                text = { Text(option) },
-                                onClick = {
-                                    brand = option
-                                    brandExpanded = false
-                                }
+                                text = { Text("— Sin coincidencias —", color = MaterialTheme.colorScheme.outline) },
+                                onClick = {},
+                                enabled = false
                             )
+                        } else {
+                            filtered.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(option) },
+                                    onClick = {
+                                        brand = option
+                                        brandFilter = option
+                                        brandExpanded = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -171,7 +209,7 @@ fun VehicleFormScreen(
                 OutlinedTextField(
                     value = model,
                     onValueChange = { model = it },
-                    label = { Text("Modelo") },
+                    label = { Text("Modelo (opcional)") },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -181,9 +219,13 @@ fun VehicleFormScreen(
                     onValueChange = {
                         plate = it.uppercase()
                             .replace("[^A-Z0-9]".toRegex(), "")
-                            .replace(Regex("(\\d{4})([A-Z]{0,3})"), "$1 $2")
+                            .replace(Regex("(\\d{0,4})([A-Z]{0,3}).*"), "$1$2")
                     },
                     label = { Text("Matrícula") },
+                    isError = plateError,
+                    supportingText = {
+                        if (plateError) Text("La matrícula es obligatoria", fontSize = 12.sp)
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -193,6 +235,10 @@ fun VehicleFormScreen(
                     onValueChange = { if (it.all(Char::isDigit)) mileage = it },
                     label = { Text("Kilometraje") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = mileageError,
+                    supportingText = {
+                        if (mileageError) Text("Introduce un número válido (≥ 0)", fontSize = 12.sp)
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -207,37 +253,15 @@ fun VehicleFormScreen(
                         onValueChange = {},
                         label = { Text("Fecha de compra") },
                         readOnly = true,
+                        isError = purchaseDateError,
+                        supportingText = {
+                            if (purchaseDateError) Text("La fecha de compra es obligatoria", fontSize = 12.sp)
+                        },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
-            item {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { showDatePicker(lastReviewDate) { lastReviewDate = it } }
-                ) {
-                    OutlinedTextField(
-                        value = lastReviewDate,
-                        onValueChange = {},
-                        label = { Text("Última revisión") },
-                        readOnly = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-            item {
-                OutlinedTextField(
-                    value = freqKm,
-                    onValueChange = { if (it.all(Char::isDigit)) freqKm = it },
-                    label = { Text("Frecuencia (km)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            item {
-                DropdownField("Frecuencia (meses)", freqMonths, monthsOptions) { freqMonths = it }
-            }
+
             item {
                 OutlinedTextField(
                     value = alias,
@@ -246,6 +270,7 @@ fun VehicleFormScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+
             item { Spacer(modifier = Modifier.height(48.dp)) }
         }
     }
@@ -257,7 +282,9 @@ fun DropdownField(
     label: String,
     selected: String,
     options: List<String>,
-    onSelect: (String) -> Unit
+    onSelect: (String) -> Unit,
+    isError: Boolean = false,
+    supportingText: @Composable (() -> Unit)? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(
@@ -269,6 +296,8 @@ fun DropdownField(
             onValueChange = {},
             readOnly = true,
             label = { Text(label) },
+            isError = isError,
+            supportingText = supportingText,
             modifier = Modifier
                 .fillMaxWidth()
                 .menuAnchor(),

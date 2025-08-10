@@ -25,7 +25,7 @@ import com.example.autocare.vehicle.registration.steps.StepRegisterPlateScreen
 import com.example.autocare.vehicle.registration.steps.StepRegisterRevisionScreen
 import com.example.autocare.vehicle.registration.steps.StepRegisterTypeScreen
 import com.example.autocare.bluetooth.BluetoothScreen
-
+import com.example.autocare.util.StatsScreen
 
 @Composable
 fun AppNavigation(mainVm: VehicleViewModel) {
@@ -126,6 +126,17 @@ fun AppNavigation(mainVm: VehicleViewModel) {
                 onDeviceSelected = { device ->
                     mainVm.saveBluetoothForVehicle(id, device.address)
                 },
+                navController = navController
+            )
+        }
+        composable(
+            "stats/{vehicleId}",
+            arguments = listOf(navArgument("vehicleId"){ type = NavType.IntType })
+        ) { backStackEntry ->
+            val id = backStackEntry.arguments?.getInt("vehicleId") ?: return@composable
+            StatsScreen(
+                vehicleId = id,
+                viewModel = mainVm,
                 navController = navController
             )
         }

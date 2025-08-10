@@ -3,6 +3,8 @@ package com.example.autocare.sensor
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -33,6 +35,11 @@ fun DrivingSessionListScreen(
                 title = "Sesiones de Conducción",
                 onBack = { navController.popBackStack() }
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = {
+                navController.navigate("stats/$vehicleId")
+            }) { Icon(Icons.Default.Insights, contentDescription = "Ver estadísticas") }
         }
     ) { padding ->
         Column(
@@ -41,6 +48,8 @@ fun DrivingSessionListScreen(
                 .padding(16.dp)
                 .fillMaxSize()
         ) {
+            Spacer(Modifier.height(12.dp))
+
             if (sessions.value.isEmpty()) {
                 Text("No hay sesiones registradas para este vehículo.")
             } else {

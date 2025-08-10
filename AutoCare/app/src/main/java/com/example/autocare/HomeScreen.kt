@@ -14,19 +14,14 @@ import com.example.autocare.vehicle.maintenance.ReviewStatus
 
 @Composable
 fun HomeScreen(viewModel: VehicleViewModel) {
-    // Nuevo: usamos nextMaint y la lista de vehículos
     val nextMaintByVehicle by viewModel.nextMaint.collectAsState()
     val vehicles by viewModel.vehicles.collectAsState(initial = emptyList())
-
-    // Lista de vehículos con mantenimiento urgente
     val urgentVehicles by remember(nextMaintByVehicle, vehicles) {
         mutableStateOf(
             vehicles
                 .filter { v ->
                     val items = nextMaintByVehicle[v.id].orEmpty()
-                    // Define qué es "urgente"
                     items.any { nm ->
-                        // Urgente si está vencido o muy cercano
                         nm.status == ReviewStatus.OVERDUE ||
                                 (nm.status == ReviewStatus.SOON &&
                                         ((nm.leftDays ?: Int.MAX_VALUE) <= 7 ||

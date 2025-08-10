@@ -18,6 +18,9 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import kotlin.random.Random
+import java.util.concurrent.TimeUnit
+import java.time.*
 
 class VehicleViewModel(
     private val dao: VehicleDao,
@@ -278,8 +281,55 @@ class VehicleViewModel(
         dao.updateVehicle(v.copy(bluetoothMac = mac))
         loadVehicles()
     }
-    fun deleteDrivingSession(session: com.example.autocare.sensor.DrivingSession) =
-        viewModelScope.launch {
+    fun deleteDrivingSession(session: com.example.autocare.sensor.DrivingSession) = viewModelScope.launch {
             drivingSessionDao.delete(session)
+    }
+
+    fun addRandomDemoData(
+        vehicleId: Int,
+        baseMileage: Int,
+        firstYear: Int? = 2020
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val zone = java.time.ZoneId.systemDefault()
+            val today = LocalDate.now()
+            val startYear = (firstYear ?: 2020).coerceAtMost(today.year)
+            val startDate = LocalDate.of(startYear, 1, 1)
+
+            fun randomDateBetween(start: LocalDate, end: LocalDate): LocalDate {
+                val startEpoch = start.toEpochDay()
+                val endEpoch = end.toEpochDay()
+                val diff = endEpoch - startEpoch
+                val offset = kotlin.random.Random.nextLong(diff + 1)
+                return LocalDate.ofEpochDay(startEpoch + offset)
+            }
+            val day = randomDateBetween(startDate, today)
+            val durMin = (10..120).random()
+            val durMs = durMin * 60_000L
+
+            val startOfDayMs = day.atStartOfDay(zone).toInstant().toEpochMilli()
+            val maxStartOffset = 86_400_000L - durMs
+            val startOffset = if (maxStartOffset > 0) kotlin.random.Random.nextLong(maxStartOffset) else 0L
+            val startMs = startOfDayMs + startOffset
+            val endMs = startMs + durMs
+            val distanceKm = (5..60).random() + (0..9).random() / 10f
+            val avgMs = ((20..60).random() / 3.6f)             // 20–60 km/h en m/s
+            val maxMs = (avgMs * 1.6f).coerceAtMost(130 / 3.6f)
+
+            val session = com.example.autocare.sensor.DrivingSession(
+                id = 0,
+                vehicleId = vehicleId,
+                startTime = startMs,
+                endTime = endMs,
+                maxSpeed = maxMs,
+                averageSpeed = avgMs,
+                accelerations = (0..8).random(),
+                brakings = (0..8).random(),
+                distanceMeters = (distanceKm * 1000f)
+            )
+
+            drivingSessionDao.insert(session)
+            refreshNextMaintenances()
         }
+    }
 }
