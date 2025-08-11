@@ -285,13 +285,11 @@ fun StepRegisterRevisionScreen(
                                 )
                             }
                         }
-
-                        if (selected && isKmType(opt)) {
+                        if (selected && isKmType(opt) && !useCommonKm) {
                             Spacer(Modifier.height(6.dp))
                             OutlinedTextField(
                                 value = kmValue,
                                 onValueChange = { new ->
-                                    // El usuario manda; clamp a odómetro
                                     val clamped = clampToOdometer(new)
                                     vm.revisionKms[opt] = clamped
                                 },

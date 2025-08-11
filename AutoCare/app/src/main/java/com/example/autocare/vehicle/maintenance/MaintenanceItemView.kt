@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.autocare.vehicle.VehicleViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
@@ -26,6 +27,7 @@ fun MaintenanceItemView(
     vehicleId: Int,
     vehicleType: String,
     currentMileage: Int,
+    extraKmFromSessions: Int,
     onSave: (Maintenance) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -86,10 +88,11 @@ fun MaintenanceItemView(
             }
         }.distinct()
     }
-
+    val effectiveMileage = currentMileage + extraKmFromSessions
     var type by remember { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
     var dateText by remember { mutableStateOf(LocalDate.now().asDisplay()) }
+    var mileageText by remember { mutableStateOf(effectiveMileage.toString()) }
     var cost by remember { mutableStateOf("") }
     val context = LocalContext.current
     val calendar = Calendar.getInstance()
@@ -177,6 +180,21 @@ fun MaintenanceItemView(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            OutlinedTextField(
+                value = mileageText,
+                onValueChange = { txt ->
+                    if (txt.all(Char::isDigit)) mileageText = txt
+                },
+                label = { Text("Kilometraje en el momento") },
+                placeholder = { Text(effectiveMileage.toString()) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+                isError = mileageText.isBlank()
+                        || (mileageText.toIntOrNull() ?: -1) < 0
+                        || (mileageText.toIntOrNull() ?: 0) > effectiveMileage
+            )
+
+
             Spacer(Modifier.height(16.dp))
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -197,6 +215,20 @@ fun MaintenanceItemView(
                             Toast.makeText(context, "Selecciona un tipo", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
+                        val kmAt = mileageText.toIntOrNull()
+                        if (kmAt == null || kmAt < 0) {
+                            Toast.makeText(context, "Kilometraje inválido", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        if (kmAt > effectiveMileage ) {
+                            Toast.makeText(
+                                context,
+                                "El km del mantenimiento no puede superar el odómetro actual ($currentMileage)",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            return@Button
+                        }
+
                         val costValue = toDoubleOrNullNormalized(cost) ?: 0.0
                         val maintenance = Maintenance(
                             id = 0,
@@ -204,7 +236,8 @@ fun MaintenanceItemView(
                             type = type,
                             date = parseDisplayDateOrToday(dateText),
                             cost = costValue,
-                            mileageAtMaintenance = currentMileage
+                            mileageAtMaintenance = kmAt
+
                         )
                         onSave(maintenance)
                     },

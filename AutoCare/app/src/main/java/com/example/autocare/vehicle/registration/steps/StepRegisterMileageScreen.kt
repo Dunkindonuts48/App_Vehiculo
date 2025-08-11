@@ -3,10 +3,12 @@ package com.example.autocare.vehicle.registration.steps
 import android.app.DatePickerDialog
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.example.autocare.AppHeader
@@ -47,9 +49,9 @@ fun StepRegisterMileageScreen(
                 value = vm.mileage,
                 onValueChange = { if (it.all(Char::isDigit)) vm.mileage = it },
                 label = { Text("Kilometraje") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
-
             Spacer(Modifier.height(12.dp))
 
             OutlinedTextField(
@@ -64,12 +66,11 @@ fun StepRegisterMileageScreen(
 
             Spacer(Modifier.weight(1f))
 
-            Button(
-                enabled = vm.canGoToMileage(),
-                onClick = { nav.navigate("register/revision") },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Siguiente")
+            if (vm.canGoToRevision()) {
+                Button(
+                    onClick = { nav.navigate("register/revision") },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Siguiente") }
             }
         }
     }

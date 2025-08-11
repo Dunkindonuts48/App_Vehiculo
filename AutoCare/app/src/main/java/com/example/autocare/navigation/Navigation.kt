@@ -121,12 +121,7 @@ fun AppNavigation(mainVm: VehicleViewModel) {
             arguments = listOf(navArgument("vehicleId") { type = NavType.IntType })
         ) { backStackEntry ->
             val id = backStackEntry.arguments!!.getInt("vehicleId")
-            BluetoothScreen(
-                vehicleId = id,
-                onDeviceSelected = { device ->
-                    mainVm.saveBluetoothForVehicle(id, device.address)
-                },
-                navController = navController
+            BluetoothScreen(vehicleId = id, onDeviceSelected = { device -> mainVm.saveBluetoothForVehicle(id, device.address) }, navController = navController
             )
         }
         composable(
@@ -134,10 +129,7 @@ fun AppNavigation(mainVm: VehicleViewModel) {
             arguments = listOf(navArgument("vehicleId"){ type = NavType.IntType })
         ) { backStackEntry ->
             val id = backStackEntry.arguments?.getInt("vehicleId") ?: return@composable
-            StatsScreen(
-                vehicleId = id,
-                viewModel = mainVm,
-                navController = navController
+            StatsScreen(vehicleId = id, viewModel = mainVm, navController = navController
             )
         }
     }

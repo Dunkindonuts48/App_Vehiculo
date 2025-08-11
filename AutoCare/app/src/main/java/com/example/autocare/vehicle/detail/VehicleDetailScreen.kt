@@ -8,6 +8,7 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -131,9 +132,11 @@ fun VehicleDetailScreen(
     Scaffold(
         topBar = { AppHeader(title = "Vehículo", onBack = { navController.popBackStack() }) },
         floatingActionButton = {
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
-                FloatingActionButton(onClick = { showSheet = true }) {
-                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = null)
+            AnimatedVisibility(visible = !showForm && !showSheet) {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+                    FloatingActionButton(onClick = { showSheet = true }) {
+                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = null)
+                    }
                 }
             }
         }
@@ -220,8 +223,9 @@ fun VehicleDetailScreen(
                     MaintenanceItemView(
                         vehicleId = vehicle.id,
                         vehicleType = vehicle.type,
+                        extraKmFromSessions = extraKm,
                         currentMileage = vehicle.mileage,
-                        onSave = {
+                                onSave = {
                             viewModel.registerMaintenance(it)
                             viewModel.refreshNextMaintenances()
                             showForm = false

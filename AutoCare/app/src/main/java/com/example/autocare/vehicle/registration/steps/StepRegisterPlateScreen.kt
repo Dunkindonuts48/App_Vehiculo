@@ -18,11 +18,19 @@ import androidx.navigation.NavHostController
 import com.example.autocare.AppHeader
 import com.example.autocare.vehicle.VehicleRegistrationViewModel
 
+import androidx.compose.runtime.*
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.KeyboardCapitalization
+
+
 @Composable
 fun StepRegisterPlateScreen(
     vm: VehicleRegistrationViewModel,
     nav: NavHostController
 ) {
+    var plateField by remember { mutableStateOf(TextFieldValue(vm.plate)) }
+
     Scaffold(
         topBar = { AppHeader("3/6: Matrícula", onBack = { nav.popBackStack() }) }
     ) { padding ->
@@ -33,26 +41,50 @@ fun StepRegisterPlateScreen(
                 .padding(16.dp)
         ) {
             OutlinedTextField(
-                value = vm.plate,
-                onValueChange = {
-                    vm.plate = it.uppercase()
-                        .replace("[^A-Z0-9]".toRegex(), "")
-                        .replace(Regex("(\\d{4})([A-Z]{0,3})"), "$1 $2")
+                value = plateField,
+                onValueChange = { tf ->
+                    val raw = tf.text.uppercase().filter { it.isLetterOrDigit() }
+                    var digits = ""
+                    var letters = ""
+
+                    for (ch in raw) {
+                        if (digits.length < 4 && ch.isDigit()) {
+                            digits += ch
+                        } else if (digits.length == 4 && letters.length < 3 && ch.isLetter()) {
+                            letters += ch
+                        }
+                        if (digits.length == 4 && letters.length == 3) break
+                    }
+
+                    val formatted = if (digits.length == 4 && letters.length == 3) {
+                        "$digits $letters"
+                    } else {
+                        digits + letters
+                    }
+
+                    plateField = tf.copy(
+                        text = formatted,
+                        selection = TextRange(formatted.length)
+                    )
+                    vm.plate = formatted
                 },
                 label = { Text("4 dígitos + 3 letras") },
                 isError = vm.plate.isNotEmpty() && !vm.isPlateValid(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Ascii,
+                    capitalization = KeyboardCapitalization.Characters,
+                    autoCorrect = false
+                ),
                 modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(Modifier.weight(1f))
 
-            Button(
-                enabled = vm.canGoToPlate(),
-                onClick = { nav.navigate("register/mileage") },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Siguiente")
+            if (vm.isPlateValid()) {
+                Button(
+                    onClick = { nav.navigate("register/mileage") },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Siguiente") }
             }
         }
     }

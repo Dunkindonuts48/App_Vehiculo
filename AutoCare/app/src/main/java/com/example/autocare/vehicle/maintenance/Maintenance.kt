@@ -9,18 +9,10 @@ import java.time.LocalDate
 
 @Entity(
     tableName = "maintenances",
-    foreignKeys = [
-        ForeignKey(
-            entity = Vehicle::class,
-            parentColumns = ["id"],
-            childColumns = ["vehicleId"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ],
+    foreignKeys = [ForeignKey(entity = Vehicle::class, parentColumns = ["id"], childColumns = ["vehicleId"], onDelete = ForeignKey.CASCADE)],
     indices = [Index("vehicleId")]
 )
-data class Maintenance(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+data class Maintenance(@PrimaryKey(autoGenerate = true) val id: Int = 0,
     val vehicleId: Int,
     val type: String,
     val date: LocalDate,
