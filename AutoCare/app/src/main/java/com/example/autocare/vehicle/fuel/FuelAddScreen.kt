@@ -1,5 +1,7 @@
 package com.example.autocare.vehicle.fuel
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
@@ -15,19 +17,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.navigation.NavHostController
 import com.example.autocare.AppHeader
 import com.example.autocare.vehicle.VehicleViewModel
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import java.io.File
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val DISPLAY_FMT: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 private fun parseDisplayDateOrToday(s: String?): LocalDate =
-    try { LocalDate.parse(s, DISPLAY_FMT) } catch (_: Exception) { LocalDate.now() }
+    try {
+        LocalDate.parse(s, DISPLAY_FMT)
+    } catch (_: Exception) {
+        LocalDate.now()
+    }
+
 private fun recognizeTextFromUri(
     context: android.content.Context,
     uri: Uri,
@@ -58,34 +68,92 @@ private fun parseText(
     onLiters: (String) -> Unit,
     onPrice: (String) -> Unit
 ) {
-    val cleaned = raw
-        .uppercase(Locale.getDefault())
-        .replace(Regex("""[^0-9€,/.L\s]"""), " ")
-        .replace(Regex("\\s+"), " ")
-        .trim()
+    val lines = raw
+        .split('\n')
+        .map { line ->
+            line.uppercase(Locale.getDefault())
+                .replace(Regex("""[^\dA-Z€/.,:\\s]"""), " ")
+                .replace(Regex("\\s+"), " ")
+                .trim()
+        }
+        .filter { it.isNotBlank() }
 
-    // Litros: "xx,xxx L" o "xx.xx L"
-    Regex("""(\d+[.,]\d{1,3})(?=\s*(?:LITROS?\b|L\b))""")
-        .findAll(cleaned)
-        .lastOrNull()
-        ?.groupValues?.get(1)
-        ?.let { onLiters(it.replace("[,']".toRegex(), ".")) }
+    fun firstNumberIn(s: String): String? =
+        Regex("""\b(\d+[.,]\d{1,3})\b""")
+            .find(s)
+            ?.groupValues?.get(1)
 
-    // Precio €/L (preferente); si no, último valor seguido de €
-    val idx = cleaned.indexOf("€/L")
-    val priceMatch = if (idx >= 0) {
-        val after = cleaned.substring(idx + 3)
-        Regex("""\s*(\d+[.,]\d{1,3})""").find(after)?.groupValues?.get(1)
-    } else {
-        Regex("""(\d+[.,]\d{1,3})(?=\s*€)""")
-            .findAll(cleaned)
-            .lastOrNull()
-            ?.groupValues
-            ?.get(1)
+    fun numberWithinNext(lines: List<String>, startIdx: Int, maxAhead: Int = 2): String? {
+        for (i in startIdx..minOf(startIdx + maxAhead, lines.lastIndex)) {
+            firstNumberIn(lines[i])?.let { return it }
+        }
+        return null
     }
 
-    priceMatch?.let { onPrice(it.replace("[,']".toRegex(), ".")) }
+    var priceStr: String? = null
+    val priceIdx = lines.indexOfFirst { it.contains("€/L") || it.contains("EUR/L") || it.contains("€ / L") }
+    if (priceIdx >= 0) {
+        priceStr = Regex("""(?:€|EUR)\s*/\s*L\s*[:\-]?\s*(\d+[.,]\d{1,3})""")
+            .find(lines[priceIdx])?.groupValues?.get(1)
+            ?: numberWithinNext(lines, priceIdx + 1, 2)
+    }
+
+    var litersStr: String? = null
+    val litersIdx = lines.indexOfFirst { it.contains("LITROS") || it.contains("CANTIDAD") || it.contains("VOL") }
+    if (litersIdx >= 0) {
+        litersStr = firstNumberIn(lines[litersIdx])
+            ?: numberWithinNext(lines, litersIdx + 1, 1)
+    } else {
+        val headerIdx = lines.indexOfFirst { it.contains("PRODUCTO") && it.contains("€/L") && it.contains("LITROS") }
+        if (headerIdx >= 0 && headerIdx + 1 <= lines.lastIndex) {
+            val nums = Regex("""\d+[.,]\d{1,3}""")
+                .findAll(lines[headerIdx + 1])
+                .map { it.value }
+                .toList()
+            if (nums.size >= 2) litersStr = nums[1]
+        }
+    }
+
+    priceStr?.let { onPrice(it.replace(',', '.')) }
+
+    litersStr?.let { candidate ->
+        val litersClean = candidate.replace(',', '.')
+        val priceClean = priceStr?.replace(',', '.')
+        if (priceClean != null && litersClean == priceClean) {
+            if (litersIdx >= 0) {
+                val alt = Regex("""\b(\d+[.,]\d{1,3})\b""")
+                    .findAll(lines.getOrNull(litersIdx) ?: "")
+                    .map { it.groupValues[1] }
+                    .drop(1)
+                    .firstOrNull()
+                    ?: firstNumberIn(lines.getOrNull(litersIdx + 1) ?: "")
+                if (alt != null && alt.replace(',', '.') != priceClean) {
+                    onLiters(alt.replace(',', '.'))
+                } else {
+                    onLiters(litersClean)
+                }
+            } else {
+                onLiters(litersClean)
+            }
+        } else {
+            onLiters(litersClean)
+        }
+    }
+
+    if (priceStr == null && litersStr != null) {
+        val total = lines.firstNotNullOfOrNull { line ->
+            Regex("""(?:TOTAL|IMPORTE(?:\s+TOTAL)?)\s*[:\-]?\s*(\d+[.,]\d{1,2})\s*(?:€|EUR)?""")
+                .find(line)
+                ?.groupValues?.get(1)
+        }?.replace(',', '.')?.toFloatOrNull()
+
+        val l = litersStr.replace(',', '.').toFloatOrNull()
+        if (total != null && l != null && l > 0f) {
+            onPrice(String.format(Locale.US, "%.3f", total / l))
+        }
+    }
 }
+
 @Composable
 fun FuelAddScreen(
     vehicleId: Int,
@@ -93,10 +161,7 @@ fun FuelAddScreen(
     navController: NavHostController
 ) {
     val context = LocalContext.current
-
-    // Mantén la fecha en UI como String "dd/MM/yyyy"; convertimos a LocalDate al guardar.
     var dateText by remember { mutableStateOf(LocalDate.now().format(DISPLAY_FMT)) }
-
     var mileage by remember {
         mutableStateOf(
             viewModel.vehicles.value.firstOrNull { it.id == vehicleId }?.mileage?.toString() ?: ""
@@ -115,7 +180,16 @@ fun FuelAddScreen(
                 it,
                 onResult = { raw ->
                     Log.d("OCR_RAW", raw)
+                    val beforeL = liters
+                    val beforeP = pricePerLiter // [NEW]
                     parseText(raw, { l -> liters = l }, { p -> pricePerLiter = p })
+                    if (raw.isBlank() || (liters == beforeL && pricePerLiter == beforeP)) {
+                        Toast.makeText(
+                            context,
+                            "No se han podido extraer datos del ticket",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 },
                 onError = {
                     Toast.makeText(context, "Error al leer imagen", Toast.LENGTH_SHORT).show()
@@ -124,14 +198,51 @@ fun FuelAddScreen(
         }
     }
 
-    val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bmp ->
-        bmp?.let {
-            bitmap = it
-            recognizeTextFromBitmap(
-                it,
-                onResult = { raw -> parseText(raw, { l -> liters = l }, { p -> pricePerLiter = p }) },
+    val photoUri = remember {
+        val file = File(context.cacheDir, "ticket_${System.currentTimeMillis()}.jpg")
+        FileProvider.getUriForFile(
+            context,
+            context.packageName + ".fileprovider",
+            file
+        )
+    }
+
+    val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+        if (ok) {
+            recognizeTextFromUri(
+                context,
+                photoUri,
+                onResult = { raw ->
+                    Log.d("OCR_RAW", raw)
+                    val beforeL = liters // [NEW]
+                    val beforeP = pricePerLiter // [NEW]
+                    parseText(raw, { liters = it }, { pricePerLiter = it })
+                    if (raw.isBlank() || (liters == beforeL && pricePerLiter == beforeP)) {
+                        Toast.makeText(
+                            context,
+                            "No se han podido extraer datos del ticket",
+                            Toast.LENGTH_SHORT
+                        ).show() // [NEW]
+                    }
+                },
                 onError = { Toast.makeText(context, "Error al leer foto", Toast.LENGTH_SHORT).show() }
             )
+        } else {
+            Toast.makeText(context, "Foto cancelada", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val requestCameraPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            takePicture.launch(photoUri)
+        } else {
+            Toast.makeText(
+                context,
+                "Se necesita permiso de cámara para hacer la foto",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -178,7 +289,21 @@ fun FuelAddScreen(
                 Button(onClick = { pickImage.launch("image/*") }, Modifier.weight(1f)) {
                     Text("Importar imagen")
                 }
-                Button(onClick = { takePhoto.launch(null) }, Modifier.weight(1f)) {
+                Button(
+                    onClick = {
+                        val granted = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.CAMERA
+                        ) == PackageManager.PERMISSION_GRANTED
+
+                        if (granted) {
+                            takePicture.launch(photoUri)
+                        } else {
+                            requestCameraPermission.launch(Manifest.permission.CAMERA)
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text("Hacer foto")
                 }
             }
@@ -201,11 +326,12 @@ fun FuelAddScreen(
                     val entry = FuelEntry(
                         id = 0,
                         vehicleId = vehicleId,
-                        date = parseDisplayDateOrToday(dateText), // <-- LocalDate
+                        date = parseDisplayDateOrToday(dateText),
                         mileage = m,
                         liters = l,
                         pricePerLiter = p
                     )
+
                     viewModel.insertFuelEntry(entry)
                     navController.popBackStack()
                 },

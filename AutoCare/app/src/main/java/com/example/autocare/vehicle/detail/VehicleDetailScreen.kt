@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.navigation.NavHostController
 import com.example.autocare.AppHeader
 import com.example.autocare.sensor.SensorTrackingService
@@ -37,6 +38,7 @@ import com.example.autocare.vehicle.maintenance.MaintenanceItemView
 import com.example.autocare.vehicle.maintenance.NextMaintenance
 import com.example.autocare.vehicle.maintenance.ReviewStatus
 import java.time.LocalDate
+import kotlin.math.roundToInt
 
 @SuppressLint("InlinedApi")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,14 +55,17 @@ fun VehicleDetailScreen(
     val totalCost by remember(maintenances) { derivedStateOf { maintenances.sumOf { it.cost } } }
 
     val nextMaint by viewModel.nextMaint.collectAsState()
-    LaunchedEffect(vehicle) { viewModel.refreshNextMaintenances() }
+    val penalty by viewModel.aggressionPenaltyFlow(vehicleId).collectAsState(initial = 0f)
+
+    LaunchedEffect(vehicle) {
+        viewModel.refreshNextMaintenances()
+    }
 
     val context = LocalContext.current
-    var showSheet by remember { mutableStateOf(false) }
-    var showForm by remember { mutableStateOf(false) }
+    var showSheet by rememberSaveable { mutableStateOf(false) }
+    var showForm by rememberSaveable { mutableStateOf(false) }
 
-    val permLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
+    val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()
     ) { perms ->
         if (perms.values.all { it }) {
             startTrackingServiceAndNavigate(context, vehicle.id, navController)
@@ -76,7 +81,10 @@ fun VehicleDetailScreen(
 
     val actions = buildList<Pair<String, () -> Unit>> {
         add("Añadir repostaje" to { navController.navigate("fuel_add/${vehicle.id}") })
-        add((if (showForm) "Cancelar" else "Añadir mantenimiento") to { showForm = !showForm })
+        add((if (showForm) "Cancelar" else "Añadir mantenimiento") to {
+            showForm = false
+            showForm = !showForm
+        })
         add("Ver mantenimientos" to { navController.navigate("maintenance/${vehicle.id}") })
         add((if (!SensorTrackingService.isRunning) "Iniciar seguimiento" else "Ir a seguimiento") to {
             if (!SensorTrackingService.isRunning) permLauncher.launch(getTrackingPermissions())
@@ -155,7 +163,12 @@ fun VehicleDetailScreen(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Card(Modifier.fillMaxWidth().clickable { navController.navigate("form/${vehicle.id}") }, shape = RoundedCornerShape(12.dp)) {
+                Card(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { navController.navigate("form/${vehicle.id}") },
+                    shape = RoundedCornerShape(12.dp)
+                ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         val displayKm = vehicle.mileage + extraKm
                         thisVehicle?.bluetoothMac?.let { mac ->
@@ -169,9 +182,14 @@ fun VehicleDetailScreen(
                     }
                 }
 
-                Card(Modifier.fillMaxWidth().clickable { navController.navigate("fuel/${vehicle.id}") }, shape = RoundedCornerShape(12.dp)) {
+                Card(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { navController.navigate("fuel/${vehicle.id}") },
+                    shape = RoundedCornerShape(12.dp)
+                ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Gasto combustible", style = MaterialTheme.typography.titleMedium)
+                        Text("Gastos en combustible", style = MaterialTheme.typography.titleMedium)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Este mes", style = MaterialTheme.typography.bodyLarge)
                             Text("%.2f €".format(monthTotal), style = MaterialTheme.typography.bodyLarge)
@@ -188,9 +206,14 @@ fun VehicleDetailScreen(
                     }
                 }
 
-                Card(Modifier.fillMaxWidth().clickable { navController.navigate("maintenance/${vehicle.id}") }, shape = RoundedCornerShape(12.dp)) {
+                Card(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { navController.navigate("maintenance/${vehicle.id}") },
+                    shape = RoundedCornerShape(12.dp)
+                ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Gasto total", style = MaterialTheme.typography.titleMedium)
+                        Text("Gastos en Mantenimientos", style = MaterialTheme.typography.titleMedium)
                         Text("%.2f €".format(totalCost), style = MaterialTheme.typography.titleLarge)
                     }
                 }
@@ -225,7 +248,7 @@ fun VehicleDetailScreen(
                         vehicleType = vehicle.type,
                         extraKmFromSessions = extraKm,
                         currentMileage = vehicle.mileage,
-                                onSave = {
+                        onSave = {
                             viewModel.registerMaintenance(it)
                             viewModel.refreshNextMaintenances()
                             showForm = false
@@ -264,8 +287,7 @@ fun VehicleDetailScreen(
 private fun MaintenanceRow(nm: NextMaintenance) {
     val bg = statusBg(nm.status)
     val outline = statusOutline(nm.status)
-
-    val rowHeight = 96.dp
+    val rowHeight = 108.dp
     val shape = RoundedCornerShape(10.dp)
 
     Column(
@@ -279,6 +301,16 @@ private fun MaintenanceRow(nm: NextMaintenance) {
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             Text(nm.type, style = MaterialTheme.typography.titleMedium)
+        }
+        if (nm.penalty > 0f) {
+            val pct = (nm.penalty * 100).roundToInt()
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                Text(
+                    "Adelantado por conducción agresiva (−$pct%)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+            }
         }
 
         if (nm.leftKm != null && nm.leftDays != null) {

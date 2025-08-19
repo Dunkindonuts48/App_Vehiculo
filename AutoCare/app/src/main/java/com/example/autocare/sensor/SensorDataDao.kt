@@ -11,6 +11,8 @@ interface SensorDataDao {
     suspend fun insert(data: SensorData)
     @Query("SELECT * FROM sensor_data WHERE vehicleId = :vehicleId ORDER BY timestamp DESC")
     fun getByVehicle(vehicleId: Int): Flow<List<SensorData>>
-    @Query("DELETE FROM sensor_data")
-    suspend fun clearAll()
+    //@Query("DELETE FROM sensor_data")
+    //suspend fun clearAll()
+    @Query("""DELETE FROM sensor_data WHERE vehicleId = :vehicleId AND timestamp BETWEEN :start AND :end""")
+    suspend fun deleteRange(vehicleId: Int, start: Long, end: Long)
 }

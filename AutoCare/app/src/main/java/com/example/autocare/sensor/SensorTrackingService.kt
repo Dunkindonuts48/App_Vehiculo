@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlin.math.sqrt
 import kotlin.math.abs
 
 class SensorTrackingService : Service(), SensorEventListener, LocationListener {
@@ -39,10 +40,10 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
     private var accel = FloatArray(3)
     private var gyro = FloatArray(3)
     private var sessionStartTime: Long = 0L
+    private var linAcc = FloatArray(3)
 
     override fun onCreate() {
         super.onCreate()
-
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -60,18 +61,18 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
             manager.createNotificationChannel(channel)
         }
 
-        sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.also {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)?.also {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
         }
         sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)?.also {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
         }
 
         try {
             locationManager.requestLocationUpdates(
                 LocationManager.GPS_PROVIDER,
-                2000L,
-                10f,
+                500L,
+                0f,
                 this
             )
         } catch (e: SecurityException) {
@@ -99,12 +100,14 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
-        event?.let {
+       /* event?.let {
             when (it.sensor.type) {
-                Sensor.TYPE_ACCELEROMETER -> accel = it.values.copyOf()
+                Sensor.TYPE_LINEAR_ACCELERATION -> linAcc = it.values.copyOf()
                 Sensor.TYPE_GYROSCOPE -> gyro = it.values.copyOf()
+                Sensor.TYPE_ACCELEROMETER -> accel = it.values.copyOf()
             }
         }
+        */
     }
 
     override fun onLocationChanged(location: Location) {
@@ -133,52 +136,66 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
     override fun onDestroy() {
         super.onDestroy()
         isRunning = false
-        sensorManager.unregisterListener(this)
-        locationManager.removeUpdates(this)
-        if (vehicleId != -1) {
-            CoroutineScope(Dispatchers.IO).launch {
-                val allData = sensorDataDao.getByVehicle(vehicleId).first()
-                    .filter { it.timestamp >= sessionStartTime }
-                if (allData.size >= 2) {
-                    val endTime = System.currentTimeMillis()
-                    val maxSpeed = allData.maxOf { it.speed }
-                    val avgSpeed = allData.map { it.speed }.average().toFloat()
-                    var accelerations = 0
-                    var brakings = 0
-                    for (i in 1 until allData.size) {
-                        val prev = allData[i - 1]
-                        val curr = allData[i]
-                        val deltaSpeed = curr.speed - prev.speed
-                        val deltaTime = (curr.timestamp - prev.timestamp) / 1000f
-                        //Log.i("DeltaTime: ", "${ deltaTime }")
-                        if (deltaTime in 0.2..1.0) {
-                            val acceleration = deltaSpeed / deltaTime
-                            //Log.d("Sesión", "Δv=$deltaSpeed, Δt=$deltaTime, a=$acceleration m/s²")
-                            if (acceleration > 0.2f) {
-                                accelerations++
-                                //Log.i("Sesión", "Acelerón detectado ($acceleration m/s²)")
-                            }
-                            if (acceleration < -0.2f) {
-                                brakings++
-                                //Log.i("Sesión", "Frenazo detectado ($acceleration m/s²)")
-                            }
-                        }
-                    }
-                    val durationSec = (endTime - sessionStartTime) / 1000f
-                    val meters = avgSpeed * durationSec
-                    val session = DrivingSession(
-                        vehicleId = vehicleId,
-                        startTime = sessionStartTime,
-                        endTime = endTime,
-                        maxSpeed = maxSpeed,
-                        averageSpeed = avgSpeed,
-                        accelerations = accelerations,
-                        brakings = brakings,
-                        distanceMeters = meters
-                    )
-                    drivingSessionDao.insert(session)
+        try { sensorManager.unregisterListener(this) } catch (_: Exception) {}
+        try { locationManager.removeUpdates(this) } catch (_: SecurityException) {}
+        if (vehicleId == -1) return
+        CoroutineScope(Dispatchers.IO).launch {
+            val allData = sensorDataDao.getByVehicle(vehicleId).first()
+                .filter { it.timestamp >= sessionStartTime }
+
+            if (allData.size < 2) return@launch
+
+            val endTime = System.currentTimeMillis()
+            val maxSpeed = allData.maxOf { it.speed }
+            val avgSpeed = allData.map { it.speed }.average().toFloat()
+            var accelerations = 0
+            var brakings = 0
+            var lastEventMs = 0L
+            val alpha = 0.25f
+            var emaPrev = allData.first().speed
+            var distanceMeters = 0f
+
+            for (i in 1 until allData.size) {
+                val prev = allData[i - 1]
+                val curr = allData[i]
+
+                val dt = (curr.timestamp - prev.timestamp) / 1000f
+                if (dt !in 0.4f..6.0f) continue
+
+                distanceMeters += 0.5f * (prev.speed + curr.speed) * dt
+
+                val emaCurr = alpha * curr.speed + (1 - alpha) * emaPrev
+                val a = (emaCurr - emaPrev) / dt
+                val dv = (emaCurr - emaPrev)
+                val nowTs = curr.timestamp
+                val free = (nowTs - lastEventMs) > 1200L
+
+                val minSpeedForAccel = emaPrev > 3.0f
+                val minSpeedForBrake = emaPrev > 5.0f
+
+                if (free && minSpeedForAccel && a > 1.8f && dv > 2.0f) {
+                    accelerations++
+                    lastEventMs = nowTs
+                } else if (free && minSpeedForBrake && a < -2.2f && dv < -2.0f) {
+                    brakings++
+                    lastEventMs = nowTs
                 }
+
+                emaPrev = emaCurr
             }
+
+            val session = DrivingSession(
+                vehicleId = vehicleId,
+                startTime = sessionStartTime,
+                endTime = endTime,
+                maxSpeed = maxSpeed,
+                averageSpeed = avgSpeed,
+                accelerations = accelerations,
+                brakings = brakings,
+                distanceMeters = distanceMeters
+            )
+            drivingSessionDao.insert(session)
+            sensorDataDao.deleteRange(vehicleId, sessionStartTime, endTime)
         }
     }
 

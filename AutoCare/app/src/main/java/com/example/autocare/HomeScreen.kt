@@ -1,4 +1,3 @@
-// HomeScreen.kt
 package com.example.autocare
 
 import androidx.compose.foundation.layout.*
@@ -14,54 +13,10 @@ import com.example.autocare.vehicle.maintenance.ReviewStatus
 
 @Composable
 fun HomeScreen(viewModel: VehicleViewModel) {
-    val nextMaintByVehicle by viewModel.nextMaint.collectAsState()
-    val vehicles by viewModel.vehicles.collectAsState(initial = emptyList())
-    val urgentVehicles by remember(nextMaintByVehicle, vehicles) {
-        mutableStateOf(
-            vehicles
-                .filter { v ->
-                    val items = nextMaintByVehicle[v.id].orEmpty()
-                    items.any { nm ->
-                        nm.status == ReviewStatus.OVERDUE ||
-                                (nm.status == ReviewStatus.SOON &&
-                                        ((nm.leftDays ?: Int.MAX_VALUE) <= 7 ||
-                                                (nm.leftKm   ?: Int.MAX_VALUE) <= 1000))
-                    }
-                }
-                .map { v -> getVehicleDisplayName(v) }
-        )
-    }
-
-    Scaffold(
-        topBar = { AppHeader("Inicio") }
-    ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                "Bienvenido a AutoCare",
-                style = MaterialTheme.typography.headlineMedium
-            )
+    Scaffold(topBar = { AppHeader("Inicio") }) {
+        padding -> Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Bienvenido a AutoCare", style = MaterialTheme.typography.headlineMedium)
             Spacer(Modifier.height(24.dp))
-
-            if (urgentVehicles.isNotEmpty()) {
-                Text("🚨 Vehículos con mantenimiento urgente:")
-                urgentVehicles.forEach { displayName ->
-                    Text(
-                        "• $displayName",
-                        style = MaterialTheme.typography.bodyLarge,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            } else {
-                Text("No hay mantenimientos urgentes.")
-            }
         }
     }
 }

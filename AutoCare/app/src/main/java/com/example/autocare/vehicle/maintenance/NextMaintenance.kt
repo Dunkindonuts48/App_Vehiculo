@@ -9,5 +9,6 @@ data class NextMaintenance(
     val leftDays: Int?,
     val status: ReviewStatus,
     val nextKm: Int?,
-    val nextDate: LocalDate?
+    val nextDate: LocalDate?,
+    val penalty: Float = 0f
 )

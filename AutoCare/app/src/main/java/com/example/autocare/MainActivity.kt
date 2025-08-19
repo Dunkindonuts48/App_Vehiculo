@@ -20,35 +20,22 @@ import com.example.autocare.vehicle.VehicleViewModelFactory
 
 class MainActivity : ComponentActivity() {
     private lateinit var btManager: BluetoothManager
-    private val requestBluetoothConnect = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) btManager.register()
+    private val requestBluetoothConnect = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+        granted -> if (granted) btManager.register()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val db = VehicleDatabase.getDatabase(applicationContext)
-        val factory = VehicleViewModelFactory(
-            db.vehicleDao(),
-            db.maintenanceDao(),
-            db.drivingSessionDao(),
-            db.fuelEntryDao()
-        )
+        val factory = VehicleViewModelFactory(db.vehicleDao(), db.maintenanceDao(), db.drivingSessionDao(), db.fuelEntryDao())
         val viewModel = ViewModelProvider(this, factory).get(VehicleViewModel::class.java)
         btManager = BluetoothManager(this, db.vehicleDao())
         val dest = intent?.getStringExtra("dest")
         val vehicleId = intent?.getIntExtra("vehicleId", -1) ?: -1
         if (dest == "tracking" && vehicleId > 0) {
-            val deepLink = Intent(
-                Intent.ACTION_VIEW,
-                Uri.parse("autocare://tracking/$vehicleId"),
-                this,
-                MainActivity::class.java
-            )
+            val deepLink = Intent(Intent.ACTION_VIEW, Uri.parse("autocare://tracking/$vehicleId"), this, MainActivity::class.java)
             setIntent(deepLink)
         }
-
         setContent {
             AutoCareTheme {
                 AppNavigation(viewModel)
@@ -60,10 +47,7 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             when {
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.BLUETOOTH_CONNECT
-                ) == PackageManager.PERMISSION_GRANTED -> {
+                ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED -> {
                     btManager.register()
                 }
                 shouldShowRequestPermissionRationale(Manifest.permission.BLUETOOTH_CONNECT) -> {
