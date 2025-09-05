@@ -39,7 +39,6 @@ object Notifier {
         val nmCompat = NotificationManagerCompat.from(ctx)
         if (!nmCompat.areNotificationsEnabled()) return
 
-        // 2) En Android 13+ comprobar POST_NOTIFICATIONS
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = ContextCompat.checkSelfPermission(
                 ctx, Manifest.permission.POST_NOTIFICATIONS

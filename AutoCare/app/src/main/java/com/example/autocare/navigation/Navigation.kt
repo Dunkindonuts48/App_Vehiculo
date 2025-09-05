@@ -25,7 +25,7 @@ import com.example.autocare.vehicle.registration.steps.StepRegisterPlateScreen
 import com.example.autocare.vehicle.registration.steps.StepRegisterRevisionScreen
 import com.example.autocare.vehicle.registration.steps.StepRegisterTypeScreen
 import com.example.autocare.bluetooth.BluetoothScreen
-import com.example.autocare.util.StatsScreen
+import com.example.autocare.charts.StatsScreen
 
 @Composable
 fun AppNavigation(mainVm: VehicleViewModel) {

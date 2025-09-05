@@ -1,5 +1,7 @@
-package com.example.autocare.util
+package com.example.autocare.charts
 
+import android.annotation.SuppressLint
+import android.graphics.Paint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -39,6 +41,12 @@ import java.util.Locale
 import kotlin.math.floor
 import kotlin.math.log10
 import kotlin.math.pow
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.text.font.FontWeight
+import kotlin.math.atan2
+import kotlin.math.hypot
+import kotlin.math.min
 
 data class MaintenanceItem(
     val epochMillis: Long,
@@ -94,6 +102,7 @@ sealed interface MaintScopeOption {
     data object SinceStart: MaintScopeOption
 }
 
+@SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MaintenanceCostOverTimeCard(
@@ -154,7 +163,6 @@ fun MaintenanceCostOverTimeCard(
 
             Spacer(Modifier.height(10.dp))
 
-            // Filtros: se colocan bajo el título y se adaptan al ancho
             BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val compact = maxWidth < 420.dp
                 if (compact) {
@@ -224,6 +232,7 @@ fun MaintenanceCostOverTimeCard(
     }
 }
 
+@SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MaintenanceByCategoryCard(
@@ -311,7 +320,6 @@ private fun DonutChart(
     val density = LocalDensity.current
     val currency = remember { NumberFormat.getCurrencyInstance() }
     val total = remember(data) { data.sumOf { it.second.toDouble() }.toFloat() }
-    var tapped by remember { mutableStateOf(false) }
 
     val colorScheme = MaterialTheme.colorScheme
     val palette = remember(colorScheme) {
@@ -326,38 +334,83 @@ private fun DonutChart(
     }
     val onSurfaceVariant = colorScheme.onSurfaceVariant
 
+    // selección + tamaño del canvas para hit-testing
+    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+    var canvasSize by remember { mutableStateOf(IntSize.Zero) }
+    val strokeWidthPx = with(density) { strokeWidth.toPx() }
+
     Box(
-        modifier.pointerInput(data) {
-            detectTapGestures { tapped = !tapped }
-        }
+        modifier
+            .pointerInput(data, canvasSize) {
+                detectTapGestures { tap ->
+                    if (total <= 0f || data.isEmpty() || canvasSize == IntSize.Zero) {
+                        selectedIndex = null
+                        return@detectTapGestures
+                    }
+                    val minSide = min(canvasSize.width, canvasSize.height).toFloat()
+                    val baseRadius = minSide / 2f * 0.8f
+                    val center = Offset(canvasSize.width / 2f, canvasSize.height / 2f)
+                    val dx = tap.x - center.x
+                    val dy = tap.y - center.y
+                    val dist = hypot(dx, dy)
+
+                    val inner = baseRadius - strokeWidthPx / 2f
+                    val outer = baseRadius + strokeWidthPx / 2f
+                    if (dist < inner || dist > outer) {
+                        selectedIndex = null
+                        return@detectTapGestures
+                    }
+
+                    val tapAngle = ((Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())) + 360.0) % 360.0).toFloat()
+                    val start0 = -90f
+                    val rel = ((tapAngle - start0 + 360f) % 360f)
+
+                    var acc = 0f
+                    var found: Int? = null
+                    data.forEachIndexed { idx, (_, value) ->
+                        val sweep = if (total > 0f) (value / total) * 360f else 0f
+                        if (rel >= acc && rel < acc + sweep) {
+                            found = idx
+                            return@forEachIndexed
+                        }
+                        acc += sweep
+                    }
+                    selectedIndex = if (selectedIndex == found) null else found
+                }
+            }
+            .onSizeChanged { canvasSize = it }
     ) {
         Canvas(Modifier.fillMaxSize()) {
             if (total <= 0f || data.isEmpty()) return@Canvas
 
             val sizeMin = size.minDimension
-            val radius = sizeMin / 2f * 0.8f
+            val baseRadius = sizeMin / 2f * 0.8f
             val center = Offset(size.width / 2f, size.height / 2f)
-            val rect = arcRect(center = center, radius = radius)
-            val sw = with(density) { strokeWidth.toPx() }
 
             var start = -90f
-
             data.forEachIndexed { idx, (_, value) ->
                 val sweep = (value / total) * 360f
-                val color = palette[idx % palette.size]
+                if (sweep <= 0f) return@forEachIndexed
+
+                val isSel = selectedIndex == idx
+                val explode = if (isSel) strokeWidthPx * 0.6f else 0f
+                val ringWidth = if (isSel) strokeWidthPx * 1.25f else strokeWidthPx
+                val rect = arcRect(center = center, radius = baseRadius + explode)
+
                 drawArc(
-                    color = color,
+                    color = palette[idx % palette.size],
                     startAngle = start,
                     sweepAngle = sweep,
                     useCenter = false,
                     topLeft = Offset(rect.left, rect.top),
                     size = Size(rect.width, rect.height),
-                    style = Stroke(width = sw)
+                    style = Stroke(width = ringWidth)
                 )
                 start += sweep
             }
 
-            val textPaint = android.graphics.Paint().apply {
+            // texto central (total o detalle seleccionado)
+            val textPaint = Paint().apply {
                 val c = onSurfaceVariant
                 color = android.graphics.Color.argb(
                     (c.alpha * 255).toInt(),
@@ -365,20 +418,39 @@ private fun DonutChart(
                     (c.green * 255).toInt(),
                     (c.blue * 255).toInt()
                 )
-                textSize = with(density) { 13.sp.toPx() }
                 isAntiAlias = true
-                textAlign = android.graphics.Paint.Align.CENTER
+                textAlign = Paint.Align.CENTER
             }
-            drawContext.canvas.nativeCanvas.drawText(
-                currency.format(total.toDouble()),
-                center.x,
-                center.y + with(density) { 5.dp.toPx() },
-                textPaint
-            )
+
+            if (selectedIndex != null) {
+                val (label, value) = data[selectedIndex!!]
+                val pct = if (total > 0f) (value / total * 100f) else 0f
+                textPaint.textSize = with(density) { 13.sp.toPx() }
+                drawContext.canvas.nativeCanvas.drawText(
+                    label,
+                    center.x,
+                    center.y - with(density) { 8.dp.toPx() },
+                    textPaint
+                )
+                textPaint.textSize = with(density) { 14.sp.toPx() }
+                drawContext.canvas.nativeCanvas.drawText(
+                    "${currency.format(value.toDouble())} · ${pct.toInt()}%",
+                    center.x,
+                    center.y + with(density) { 12.dp.toPx() },
+                    textPaint
+                )
+            } else {
+                textPaint.textSize = with(density) { 13.sp.toPx() }
+                drawContext.canvas.nativeCanvas.drawText(
+                    currency.format(total.toDouble()),
+                    center.x,
+                    center.y + with(density) { 5.dp.toPx() },
+                    textPaint
+                )
+            }
         }
     }
 }
-
 @Composable
 private fun CategoryLegend(
     data: List<Pair<String, Float>>,
@@ -451,7 +523,7 @@ fun MaintenanceBarChart(
     val currency = remember { NumberFormat.getCurrencyInstance() }
 
     val labelsPaint = remember(labelColor, density) {
-        android.graphics.Paint().apply {
+        Paint().apply {
             color = android.graphics.Color.argb(
                 (labelColor.alpha * 255).toInt(),
                 (labelColor.red * 255).toInt(),
@@ -498,7 +570,7 @@ fun MaintenanceBarChart(
                 currency.format(yVal.toDouble()),
                 padStart - with(density) { 6.dp.toPx() },
                 y + with(density) { 4.dp.toPx() },
-                labelsPaint.apply { textAlign = android.graphics.Paint.Align.RIGHT }
+                labelsPaint.apply { textAlign = Paint.Align.RIGHT }
             )
         }
 
@@ -526,7 +598,7 @@ fun MaintenanceBarChart(
                 lbl,
                 x + barW / 2f,
                 origin.y + with(density) { 14.dp.toPx() },
-                labelsPaint.apply { textAlign = android.graphics.Paint.Align.CENTER }
+                labelsPaint.apply { textAlign = Paint.Align.CENTER }
             )
         }
     }
@@ -597,4 +669,3 @@ private fun CategoryFilterDropdown(
         }
     }
 }
-

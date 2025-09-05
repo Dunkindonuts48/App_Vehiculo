@@ -1,5 +1,6 @@
-package com.example.autocare.util
+package com.example.autocare.charts
 
+import android.graphics.Paint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -12,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -60,9 +62,8 @@ private fun niceCeil(maxVal: Float): Float {
 private fun availableYears(entries: List<FuelEntry>) =
     entries.map { it.date.year }.toSet().sorted()
 
-// precio medio mensual ponderado por litros
 private fun monthlyWeightedAvgPrice(entries: List<FuelEntry>): Map<YearMonth, Float> {
-    val acc = mutableMapOf<YearMonth, Pair<Float, Float>>() // litros, coste
+    val acc = mutableMapOf<YearMonth, Pair<Float, Float>>()
     entries.forEach { e ->
         val ym = YearMonth.of(e.date.year, e.date.month)
         val liters = e.liters
@@ -227,22 +228,16 @@ private fun FuelPriceLineChart(
             val rightPad = with(density) { contentPadding.calculateRightPadding(layoutDirection).toPx() }
             val topPad = with(density) { contentPadding.calculateTopPadding().toPx() }
             val bottomPad = with(density) { contentPadding.calculateBottomPadding().toPx() }
-
             val w = size.width - leftPad - rightPad
             val h = size.height - topPad - bottomPad
-
             val origin = Offset(leftPad, size.height - bottomPad)
             val xEnd = Offset(size.width - rightPad, size.height - bottomPad)
             val yTop = Offset(leftPad, topPad)
-
-            // axes
             drawLine(axisColor, origin, xEnd, strokeWidth = 2f)
             drawLine(axisColor, origin, yTop, strokeWidth = 2f)
-
-            // y ticks
             val yTicks = 5
             val step = maxY / yTicks
-            val textPaint = android.graphics.Paint().apply {
+            val textPaint = Paint().apply {
                 color = android.graphics.Color.argb(
                     (labelColor.alpha * 255).toInt(),
                     (labelColor.red * 255).toInt(),
@@ -257,7 +252,7 @@ private fun FuelPriceLineChart(
                 val y = origin.y - (value / maxY) * h
                 drawLine(axisColor.copy(alpha = 0.15f), Offset(leftPad, y), Offset(size.width - rightPad, y), 1f)
                 drawContext.canvas.nativeCanvas.drawText(
-                    "€/${"L"} ${"%.2f".format(value)}", // (solo guía de escala numérica no acumulativa)
+                    "€/${"L"} ${"%.2f".format(value)}",
                     leftPad - with(density) { 8.dp.toPx() },
                     y + with(density) { 4.dp.toPx() },
                     textPaint
@@ -281,10 +276,8 @@ private fun FuelPriceLineChart(
             }
             drawPath(path, lineColor, style = Stroke(width = 4f, cap = StrokeCap.Round, join = StrokeJoin.Round))
 
-            // points
             for (i in 0 until n) drawCircle(color = lineColor, radius = 5f, center = xy(i, points[i].value))
 
-            // x labels
             val maxLabels = 8
             val stepLabel = max(1, n / maxLabels)
             monthLabels.forEachIndexed { i, label ->
@@ -295,7 +288,6 @@ private fun FuelPriceLineChart(
                 }
             }
 
-            // tooltip
             touchX?.let { tx ->
                 val idx = ((tx - leftPad) / dx).roundToInt().coerceIn(0, n - 1)
                 val p = points[idx]
@@ -318,9 +310,10 @@ private fun FuelPriceLineChart(
                 val boxY = (pos.y - with(density){ 32.dp.toPx() }).coerceAtLeast(topPad + 4f)
 
                 drawRect(color = tooltipBgColor, topLeft = Offset(boxX, boxY),
-                    size = androidx.compose.ui.geometry.Size(boxW, boxH))
+                    size = Size(boxW, boxH)
+                )
                 drawRect(color = tooltipBorderColor, topLeft = Offset(boxX, boxY),
-                    size = androidx.compose.ui.geometry.Size(boxW, boxH), style = Stroke(width = 1.5f))
+                    size = Size(boxW, boxH), style = Stroke(width = 1.5f))
                 drawContext.canvas.nativeCanvas.drawText(
                     tooltip, boxX + pad, boxY + boxH - with(density){ 6.dp.toPx() }, textPaint
                 )

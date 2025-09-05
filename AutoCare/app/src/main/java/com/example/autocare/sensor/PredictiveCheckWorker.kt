@@ -1,22 +1,30 @@
-package com.example.autocare.util
+package com.example.autocare.sensor
 
 import android.content.Context
-import androidx.work.*
-import com.example.autocare.vehicle.VehicleDatabase
+import androidx.work.Constraints
+import androidx.work.CoroutineWorker
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.WorkerParameters
+import com.example.autocare.util.Notifier
 import com.example.autocare.vehicle.Vehicle
+import com.example.autocare.vehicle.VehicleDatabase
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 import kotlin.math.max
 import kotlin.math.min
+
 class PredictiveCheckWorker(
     appContext: Context,
     params: WorkerParameters
 ) : CoroutineWorker(appContext, params) {
 
-    private val db by lazy { VehicleDatabase.getDatabase(appContext) }
+    private val db by lazy { VehicleDatabase.Companion.getDatabase(appContext) }
     private val vehicleDao get() = db.vehicleDao()
     private val maintenanceDao get() = db.maintenanceDao()
     private val sessionDao get() = db.drivingSessionDao()
@@ -125,7 +133,7 @@ class PredictiveCheckWorker(
                 .build()
 
             val request = PeriodicWorkRequestBuilder<PredictiveCheckWorker>(
-                24, java.util.concurrent.TimeUnit.HOURS
+                24, TimeUnit.HOURS
             )
                 .setConstraints(constraints)
                 .addTag(WORK_NAME)

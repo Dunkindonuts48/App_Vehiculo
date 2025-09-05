@@ -21,8 +21,7 @@ class BluetoothReceiver : BroadcastReceiver() {
             dao.getAll().firstOrNull { it.bluetoothMac == device.address }?.let { vehicle ->
                 when (action) {
                     BluetoothDevice.ACTION_ACL_CONNECTED -> {
-                        val svc = Intent(ctx, SensorTrackingService::class.java)
-                            .apply { putExtra("vehicleId", vehicle.id) }
+                        val svc = Intent(ctx, SensorTrackingService::class.java).apply { putExtra("vehicleId", vehicle.id) }
                         ContextCompat.startForegroundService(ctx, svc)
                     }
                     BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
