@@ -1,10 +1,7 @@
 package com.example.autocare.charts
 
 import android.annotation.SuppressLint
-<<<<<<< HEAD:AutoCare/app/src/main/java/com/example/autocare/charts/MaintenanceChart.kt
 import android.graphics.Paint
-=======
->>>>>>> 9a59bcb03d34a09602563ef7607f85c4cc294183:AutoCare/app/src/main/java/com/example/autocare/util/MaintenanceChart.kt
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -156,6 +153,7 @@ fun MaintenanceCostOverTimeCard(
                 .background(MaterialTheme.colorScheme.surfaceVariant)
                 .padding(14.dp)
         ) {
+            // Título
             Text(
                 title,
                 style = MaterialTheme.typography.titleMedium,
@@ -258,12 +256,17 @@ fun MaintenanceByCategoryCard(
     }
 
     val totals = remember(data) {
-        data.groupBy { it.category.ifBlank { "Sin categoría" } }.mapValues { (_, l) -> l.sumOf { it.cost.toDouble() }.toFloat() }.toList().sortedByDescending { it.second }
+        data.groupBy { it.category.ifBlank { "Sin categoría" } }
+            .mapValues { (_, l) -> l.sumOf { it.cost.toDouble() }.toFloat() }
+            .toList()
+            .sortedByDescending { it.second }
     }
 
     Card(modifier, shape = RoundedCornerShape(12.dp)) {
         Column(
-            Modifier.background(MaterialTheme.colorScheme.surfaceVariant).padding(14.dp)
+            Modifier
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(14.dp)
         ) {
             Text(
                 title,
@@ -318,11 +321,18 @@ private fun DonutChart(
     val currency = remember { NumberFormat.getCurrencyInstance() }
     val total = remember(data) { data.sumOf { it.second.toDouble() }.toFloat() }
 
-    // NUEVO: paleta dinámica según las etiquetas del dataset
-    val labels = remember(data) { data.map { it.first } }
-    val palette = remember(labels) { buildDiscretePalette(labels) }
-
-    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    val colorScheme = MaterialTheme.colorScheme
+    val palette = remember(colorScheme) {
+        listOf(
+            colorScheme.primary,
+            colorScheme.secondary,
+            colorScheme.tertiary,
+            colorScheme.primaryContainer,
+            colorScheme.secondaryContainer,
+            colorScheme.tertiaryContainer,
+        )
+    }
+    val onSurfaceVariant = colorScheme.onSurfaceVariant
 
     // selección + tamaño del canvas para hit-testing
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
@@ -330,7 +340,6 @@ private fun DonutChart(
     val strokeWidthPx = with(density) { strokeWidth.toPx() }
 
     Box(
-<<<<<<< HEAD:AutoCare/app/src/main/java/com/example/autocare/charts/MaintenanceChart.kt
         modifier
             .pointerInput(data, canvasSize) {
                 detectTapGestures { tap ->
@@ -370,9 +379,6 @@ private fun DonutChart(
                 }
             }
             .onSizeChanged { canvasSize = it }
-=======
-        modifier.pointerInput(data) { detectTapGestures { tapped = !tapped } }
->>>>>>> 9a59bcb03d34a09602563ef7607f85c4cc294183:AutoCare/app/src/main/java/com/example/autocare/util/MaintenanceChart.kt
     ) {
         Canvas(Modifier.fillMaxSize()) {
             if (total <= 0f || data.isEmpty()) return@Canvas
@@ -384,7 +390,6 @@ private fun DonutChart(
             var start = -90f
             data.forEachIndexed { idx, (_, value) ->
                 val sweep = (value / total) * 360f
-<<<<<<< HEAD:AutoCare/app/src/main/java/com/example/autocare/charts/MaintenanceChart.kt
                 if (sweep <= 0f) return@forEachIndexed
 
                 val isSel = selectedIndex == idx
@@ -392,9 +397,6 @@ private fun DonutChart(
                 val ringWidth = if (isSel) strokeWidthPx * 1.25f else strokeWidthPx
                 val rect = arcRect(center = center, radius = baseRadius + explode)
 
-=======
-                val color = palette[idx]
->>>>>>> 9a59bcb03d34a09602563ef7607f85c4cc294183:AutoCare/app/src/main/java/com/example/autocare/util/MaintenanceChart.kt
                 drawArc(
                     color = palette[idx % palette.size],
                     startAngle = start,
@@ -457,12 +459,21 @@ private fun CategoryLegend(
     val currency = remember { NumberFormat.getCurrencyInstance() }
     val total = remember(data) { data.sumOf { it.second.toDouble() }.toFloat() }
 
-    val labels = remember(data) { data.map { it.first } }
-    val palette = remember(labels) { buildDiscretePalette(labels) }
+    val colorScheme = MaterialTheme.colorScheme
+    val palette = remember(colorScheme) {
+        listOf(
+            colorScheme.primary,
+            colorScheme.secondary,
+            colorScheme.tertiary,
+            colorScheme.primaryContainer,
+            colorScheme.secondaryContainer,
+            colorScheme.tertiaryContainer,
+        )
+    }
 
     Column(modifier) {
         data.forEachIndexed { idx, (label, value) ->
-            val color = palette[idx]
+            val color = palette[idx % palette.size]
             val pct = if (total > 0f) (value / total * 100f) else 0f
             Row(
                 Modifier.padding(vertical = 6.dp),
@@ -597,17 +608,6 @@ private fun arcRect(center: Offset, radius: Float): Rect {
     val left = center.x - radius
     val top = center.y - radius
     return Rect(left, top, left + 2 * radius, top + 2 * radius)
-}
-
-private fun buildDiscretePalette(labels: List<String>): List<Color> {
-    if (labels.isEmpty()) return emptyList()
-    val n = labels.size.coerceAtLeast(1)
-    val sat = 0.62f
-    val val_ = 0.92f
-    return List(n) { i ->
-        val hue = (i * 360f / n.toFloat()) % 360f
-        Color.hsv(hue, sat, val_)
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
