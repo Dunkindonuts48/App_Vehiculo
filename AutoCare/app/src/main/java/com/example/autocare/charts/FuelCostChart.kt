@@ -228,11 +228,9 @@ private fun FuelCostLineChart(
             val xEnd = Offset(size.width - rightPad, size.height - bottomPad)
             val yTop = Offset(leftPad, topPad)
 
-            // axes
             drawLine(axisColor, origin, xEnd, strokeWidth = 2f)
             drawLine(axisColor, origin, yTop, strokeWidth = 2f)
 
-            // y ticks
             val yTicks = 5
             val step = maxY / yTicks
             val textPaint = Paint().apply {
@@ -267,17 +265,14 @@ private fun FuelCostLineChart(
                 return Offset(x, y)
             }
 
-            // line
             val path = Path().apply {
                 moveTo(xy(0, points[0].value).x, xy(0, points[0].value).y)
                 for (i in 1 until n) lineTo(xy(i, points[i].value).x, xy(i, points[i].value).y)
             }
             drawPath(path, lineColor, style = Stroke(width = 4f, cap = StrokeCap.Round, join = StrokeJoin.Round))
 
-            // points
             for (i in 0 until n) drawCircle(color = lineColor, radius = 5f, center = xy(i, points[i].value))
 
-            // x labels
             val maxLabels = 8
             val stepLabel = max(1, n / maxLabels)
             monthLabels.forEachIndexed { i, label ->
@@ -288,7 +283,6 @@ private fun FuelCostLineChart(
                 }
             }
 
-            // tooltip
             touchX?.let { tx ->
                 val idx = ((tx - leftPad) / dx).roundToInt().coerceIn(0, n - 1)
                 val p = points[idx]

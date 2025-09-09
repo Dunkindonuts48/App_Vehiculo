@@ -82,8 +82,6 @@ fun StepRegisterRevisionScreen(
         base.distinct()
     }
 
-    //val odo = remember(vm.mileage) { vm.mileage ?: 0 }
-
     var allChecked by remember { mutableStateOf(false) }
     var useCommonDate by remember { mutableStateOf(false) }
     var commonDate by remember { mutableStateOf("") }
@@ -118,7 +116,6 @@ fun StepRegisterRevisionScreen(
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            // Marcar todas
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer
@@ -139,7 +136,6 @@ fun StepRegisterRevisionScreen(
                                 options.forEach { opt ->
                                     vm.revisionDates[opt] = commonDate
                                     if (isKmType(opt)) {
-                                        // Inicializamos sólo ahora; luego el usuario puede borrar/editar
                                         vm.revisionKms[opt] = odo.toString()
                                     }
                                 }
@@ -156,8 +152,6 @@ fun StepRegisterRevisionScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-
-            // Usar misma fecha para todas
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer
@@ -196,8 +190,6 @@ fun StepRegisterRevisionScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-
-            // Usar mismos KM para todas (sólo afecta a tipos con km)
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer
@@ -238,7 +230,6 @@ fun StepRegisterRevisionScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // Lista con fecha y km (si aplica)
             LazyColumn(Modifier.weight(1f)) {
                 items(options) { opt ->
                     val selected = vm.revisionDates.containsKey(opt)
@@ -261,7 +252,6 @@ fun StepRegisterRevisionScreen(
                                         vm.revisionDates[opt] =
                                             if (useCommonDate && commonDate.isNotBlank()) commonDate else ""
                                         if (isKmType(opt)) {
-                                            // Sólo inicializamos al seleccionar; luego el usuario controla el valor
                                             val initial = if (useCommonKm && commonKm.isNotBlank())
                                                 clampToOdometer(commonKm)
                                             else kmValue.ifBlank { odo.toString() }

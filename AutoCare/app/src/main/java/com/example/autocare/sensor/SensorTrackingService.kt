@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -16,15 +17,14 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.example.autocare.R
 import com.example.autocare.util.Notifier
 import com.example.autocare.vehicle.VehicleDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlin.math.sqrt
 import kotlin.math.abs
 
 class SensorTrackingService : Service(), SensorEventListener, LocationListener {
@@ -47,6 +47,7 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+
         val db = VehicleDatabase.getDatabase(applicationContext)
         sensorDataDao = db.sensorDataDao()
         drivingSessionDao = db.drivingSessionDao()
@@ -57,8 +58,7 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
                 "Seguimiento Predictivo",
                 NotificationManager.IMPORTANCE_LOW
             )
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+            notificationManager.createNotificationChannel(channel)
         }
 
         sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)?.also {
@@ -85,10 +85,14 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
         vehicleId = intent?.getIntExtra("vehicleId", -1) ?: -1
         sessionStartTime = System.currentTimeMillis()
 
+        val largeIcon = BitmapFactory.decodeResource(resources, R.drawable.logo_notificacion_autocare)
+
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.logo_notificacion_autocare)
+            .setLargeIcon(largeIcon)
             .setContentTitle("Seguimiento activo")
             .setContentText("Recopilando datos de conducción…")
+            .setColor(ContextCompat.getColor(this, R.color.teal_700))
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOnlyAlertOnce(true)
             .setOngoing(true)
@@ -100,7 +104,8 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
-       /* event?.let {
+        /*
+            event?.let {
             when (it.sensor.type) {
                 Sensor.TYPE_LINEAR_ACCELERATION -> linAcc = it.values.copyOf()
                 Sensor.TYPE_GYROSCOPE -> gyro = it.values.copyOf()
@@ -113,6 +118,7 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
     override fun onLocationChanged(location: Location) {
         speed = location.speed
         updateNotification(speed)
+
         if (vehicleId != -1) {
             val data = SensorData(
                 vehicleId = vehicleId,
@@ -132,13 +138,16 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-    override fun onBind(intent: Intent?): IBinder? = null
+    override fun onBind(intent: Intent?) = null
+
     override fun onDestroy() {
         super.onDestroy()
         isRunning = false
         try { sensorManager.unregisterListener(this) } catch (_: Exception) {}
         try { locationManager.removeUpdates(this) } catch (_: SecurityException) {}
+
         if (vehicleId == -1) return
+
         CoroutineScope(Dispatchers.IO).launch {
             val allData = sensorDataDao.getByVehicle(vehicleId).first()
                 .filter { it.timestamp >= sessionStartTime }
@@ -158,7 +167,6 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
             for (i in 1 until allData.size) {
                 val prev = allData[i - 1]
                 val curr = allData[i]
-
                 val dt = (curr.timestamp - prev.timestamp) / 1000f
                 if (dt !in 0.4f..6.0f) continue
 
@@ -169,7 +177,6 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
                 val dv = (emaCurr - emaPrev)
                 val nowTs = curr.timestamp
                 val free = (nowTs - lastEventMs) > 1200L
-
                 val minSpeedForAccel = emaPrev > 3.0f
                 val minSpeedForBrake = emaPrev > 5.0f
 
@@ -219,15 +226,19 @@ class SensorTrackingService : Service(), SensorEventListener, LocationListener {
 
     private fun updateNotification(speed: Float) {
         val speedKmH = (speed * 3.6f).toInt()
+        val largeIcon = BitmapFactory.decodeResource(resources, R.drawable.logo_notificacion_autocare)
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.logo_notificacion_autocare)
+            .setLargeIcon(largeIcon)
             .setContentTitle("Seguimiento en curso")
             .setContentText("Velocidad actual: $speedKmH km/h")
+            .setColor(ContextCompat.getColor(this, R.color.teal_700))
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOnlyAlertOnce(true)
             .setOngoing(true)
             .setContentIntent(Notifier.pendingToTracking(this, vehicleId))
             .build()
+
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
 }

@@ -153,7 +153,6 @@ fun MaintenanceCostOverTimeCard(
                 .background(MaterialTheme.colorScheme.surfaceVariant)
                 .padding(14.dp)
         ) {
-            // Título
             Text(
                 title,
                 style = MaterialTheme.typography.titleMedium,
@@ -334,7 +333,6 @@ private fun DonutChart(
     }
     val onSurfaceVariant = colorScheme.onSurfaceVariant
 
-    // selección + tamaño del canvas para hit-testing
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
     val strokeWidthPx = with(density) { strokeWidth.toPx() }
@@ -409,7 +407,6 @@ private fun DonutChart(
                 start += sweep
             }
 
-            // texto central (total o detalle seleccionado)
             val textPaint = Paint().apply {
                 val c = onSurfaceVariant
                 color = android.graphics.Color.argb(

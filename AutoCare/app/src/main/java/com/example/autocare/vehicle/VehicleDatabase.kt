@@ -57,7 +57,6 @@ abstract class VehicleDatabase : RoomDatabase() {
                 db.execSQL("DROP TABLE maintenances;")
                 db.execSQL("ALTER TABLE maintenances_new RENAME TO maintenances;")
 
-                // FUEL ENTRIES
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS fuel_entries_new (
                         id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -77,7 +76,6 @@ abstract class VehicleDatabase : RoomDatabase() {
                 db.execSQL("DROP TABLE fuel_entries;")
                 db.execSQL("ALTER TABLE fuel_entries_new RENAME TO fuel_entries;")
 
-                // SENSOR DATA
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS sensor_data_new (
                         id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -102,7 +100,6 @@ abstract class VehicleDatabase : RoomDatabase() {
                 db.execSQL("DROP TABLE sensor_data;")
                 db.execSQL("ALTER TABLE sensor_data_new RENAME TO sensor_data;")
 
-                // DRIVING SESSIONS
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS driving_sessions_new (
                         id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,

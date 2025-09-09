@@ -31,10 +31,7 @@ import com.example.autocare.vehicle.VehicleViewModel
 fun VehicleListScreen(navController: NavHostController, viewModel: VehicleViewModel) {
     val vehicles by viewModel.vehicles.collectAsState(initial = emptyList())
     val nextMaintByVehicle by viewModel.nextMaint.collectAsState()
-
     val context = LocalContext.current
-
-    // Urgente si: OVERDUE, o SOON con <=7 días o <=1000 km restantes
     val urgentSet: Set<Int> = remember(nextMaintByVehicle) {
         nextMaintByVehicle
             .filter { (_, list) ->

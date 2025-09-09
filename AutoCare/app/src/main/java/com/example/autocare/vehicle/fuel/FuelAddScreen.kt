@@ -181,7 +181,7 @@ fun FuelAddScreen(
                 onResult = { raw ->
                     Log.d("OCR_RAW", raw)
                     val beforeL = liters
-                    val beforeP = pricePerLiter // [NEW]
+                    val beforeP = pricePerLiter
                     parseText(raw, { l -> liters = l }, { p -> pricePerLiter = p })
                     if (raw.isBlank() || (liters == beforeL && pricePerLiter == beforeP)) {
                         Toast.makeText(
@@ -214,15 +214,15 @@ fun FuelAddScreen(
                 photoUri,
                 onResult = { raw ->
                     Log.d("OCR_RAW", raw)
-                    val beforeL = liters // [NEW]
-                    val beforeP = pricePerLiter // [NEW]
+                    val beforeL = liters
+                    val beforeP = pricePerLiter
                     parseText(raw, { liters = it }, { pricePerLiter = it })
                     if (raw.isBlank() || (liters == beforeL && pricePerLiter == beforeP)) {
                         Toast.makeText(
                             context,
                             "No se han podido extraer datos del ticket",
                             Toast.LENGTH_SHORT
-                        ).show() // [NEW]
+                        ).show()
                     }
                 },
                 onError = { Toast.makeText(context, "Error al leer foto", Toast.LENGTH_SHORT).show() }

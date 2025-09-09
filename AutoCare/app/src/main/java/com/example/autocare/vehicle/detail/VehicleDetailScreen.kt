@@ -39,6 +39,8 @@ import com.example.autocare.vehicle.maintenance.NextMaintenance
 import com.example.autocare.vehicle.maintenance.ReviewStatus
 import java.time.LocalDate
 import kotlin.math.roundToInt
+import java.text.NumberFormat
+import java.util.Locale
 
 @SuppressLint("InlinedApi")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,7 +67,8 @@ fun VehicleDetailScreen(
     var showSheet by rememberSaveable { mutableStateOf(false) }
     var showForm by rememberSaveable { mutableStateOf(false) }
 
-    val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()
+    val permLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
     ) { perms ->
         if (perms.values.all { it }) {
             startTrackingServiceAndNavigate(context, vehicle.id, navController)
@@ -137,6 +140,8 @@ fun VehicleDetailScreen(
         .collectAsState(initial = emptyList())
     val extraKm = remember(sessions) { sessions.sumOf { it.distanceMeters.toDouble() / 1000 }.toInt() }
 
+    val esInt = rememberEsIntFormatter()
+
     Scaffold(
         topBar = { AppHeader(title = "Vehículo", onBack = { navController.popBackStack() }) },
         floatingActionButton = {
@@ -178,7 +183,7 @@ fun VehicleDetailScreen(
                         Text("Modelo: ${vehicle.model}", style = MaterialTheme.typography.bodyMedium)
                         Text("Tipo: ${vehicle.type}", style = MaterialTheme.typography.bodyMedium)
                         Text("Matrícula: ${vehicle.plateNumber}", style = MaterialTheme.typography.bodyMedium)
-                        Text("Kilometraje: $displayKm km", style = MaterialTheme.typography.bodyMedium)
+                        Text("Kilometraje: ${esInt.format(displayKm)} km", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
 
@@ -370,8 +375,15 @@ private fun statusOutline(s: ReviewStatus): Color = when (s) {
     ReviewStatus.OK      -> Color(0xFF2E7D32)
 }
 
-private fun formatKm(leftKm: Int): String =
-    if (leftKm >= 0) "$leftKm km restantes" else "Venció hace ${-leftKm} km"
+@Composable
+private fun formatKm(leftKm: Int): String {
+    val esInt = rememberEsIntFormatter()
+    return if (leftKm >= 0) {
+        "${esInt.format(leftKm)} km restantes"
+    } else {
+        "Venció hace ${esInt.format(-leftKm)} km"
+    }
+}
 
 private fun formatDays(leftDays: Int): String =
     if (leftDays >= 0) {
@@ -408,3 +420,11 @@ private fun startTrackingServiceAndNavigate(
     }
     navController.navigate("tracking/$vehicleId")
 }
+@Composable
+private fun rememberEsIntFormatter(): NumberFormat =
+    remember {
+        NumberFormat.getIntegerInstance(Locale("es", "ES")).apply {
+            isGroupingUsed = true
+            maximumFractionDigits = 0
+        }
+    }

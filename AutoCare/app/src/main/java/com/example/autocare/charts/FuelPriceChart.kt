@@ -269,7 +269,6 @@ private fun FuelPriceLineChart(
                 return Offset(x, y)
             }
 
-            // line
             val path = Path().apply {
                 moveTo(xy(0, points[0].value).x, xy(0, points[0].value).y)
                 for (i in 1 until n) lineTo(xy(i, points[i].value).x, xy(i, points[i].value).y)

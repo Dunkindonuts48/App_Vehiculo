@@ -76,8 +76,6 @@ class VehicleViewModel(
         "Sistema de recarga: conectores" to 24,
         "Freno regenerativo" to 12
     )
-
-    // Intervalos por kilometraje
     private val intervalKms = mapOf(
         "Neumáticos: estado" to 60000,
         "Filtro de aire de motor" to 30000,

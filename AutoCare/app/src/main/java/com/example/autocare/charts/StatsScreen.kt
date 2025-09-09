@@ -80,7 +80,7 @@ fun StatsScreen(
             Modifier
                 .padding(padding)
                 .padding(16.dp)
-                .verticalScroll(scrollState), // 👈 habilita scroll
+                .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             KmOverTimeCard(
